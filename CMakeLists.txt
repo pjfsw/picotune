@@ -20,7 +20,12 @@ pico_generate_pio_header(picotune ${CMAKE_CURRENT_LIST_DIR}/src/mcp4822.pio)
     #hardware_pio    
 #)
 
-target_link_libraries(picotune pico_stdlib hardware_spi)
+target_link_libraries(picotune
+    pico_stdlib
+    hardware_spi
+    hardware_pio
+    hardware_dma
+)
 
 pico_enable_stdio_usb(picotune 1)
 pico_enable_stdio_uart(picotune 0)

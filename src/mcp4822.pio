@@ -1,31 +1,13 @@
 .program mcp4822
-
-
-.side_set 3 opt            ; sideset[2]=SCK, [1]=CS, [0]=LDAC
-; MOSI is OUT pin (set in C)
-
+.side_set 2 opt          ; [1]=SCK, [0]=CS  (base = CS pin)
 .wrap_target
-    set y, 2               ; need 2 frames before LDAC
-
-pair_loop:
-    pull       block       ; ----- FRAME -----
+    pull block
     set x, 15
-    nop        side 0b011  ; idle:  LDAC=1, CS=1, SCK=0
-    nop        side 0b001  ; assert CS low
+    nop        side 0b01 ; idle: CS=1, SCK=0
+    nop        side 0b00 ; CS=0
 bitloop:
-    out pins, 1 side 0b001 ; MOSI @ SCK=0
-    nop        side 0b101  ; SCK ↑ (clock)
-    jmp x-- bitloop side 0b001  ; SCK ↓
-    nop        side 0b011  ; CS ↑ (frame done)
-
-    jmp y-- need_second    ; after 1st: y=1 → jump; after 2nd: y=0 → fall through
-
-    ; ----- LDAC pulse after 2nd frame -----
-    nop        side 0b010  ; LDAC=0 (CS=1,SCK=0)
-    nop        side 0b011  ; LDAC=1
-    set y, 2               ; reset counter for next L/R pair
-    jmp pair_loop
-
-need_second:
-    jmp pair_loop          ; fetch/send the second frame
+    out pins, 1 side 0b00
+    nop        side 0b10 ; SCK↑
+    jmp x-- bitloop side 0b00
+    nop        side 0b01 ; CS=1 (latch)
 .wrap
