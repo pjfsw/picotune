@@ -10,11 +10,14 @@
 #define PIN_SCK 18
 #define PIN_MOSI 19
 
-#define FS 48000.0f
+#define FS 44100.0f
 #define FREQ 440.0f
 #define BUF_LEN 256
 
-static uint16_t frames[BUF_LEN];
+static int dma_channel;
+static uint16_t buffer[2][BUF_LEN];
+static volatile uint8_t next_buffer = 1;
+static volatile bool data_requested = false;
 
 // Build a 16-bit MCP4822 frame for channel A, gain 1×, active
 static inline uint16_t mcp4822_frame(uint16_t v12) {
@@ -22,16 +25,31 @@ static inline uint16_t mcp4822_frame(uint16_t v12) {
     return (0 << 15) | (1 << 14) | (1 << 13) | (1 << 12) | v12;
 }
 
-int main() {
-    stdio_init_all();
-
-    // ----- Generate 440 Hz sine -----
-    for (int i = 0; i < BUF_LEN; i++) {
-        float s = sinf(2 * M_PI * FREQ * i / FS);
-        uint16_t v = (uint16_t)((s * 0.5f + 0.5f) * 4095);
-        frames[i] = mcp4822_frame(v);
+static uint16_t t = 0;
+static uint16_t amp = 1023;
+void fill_buffer(uint16_t *buffer, uint16_t buffer_size) {
+    for (uint16_t sample = 0; sample < buffer_size; sample++) {
+        t++;
+        if (t == 441) {
+            amp = 1023-amp;
+            t = 0;
+        }
+        buffer[sample] = mcp4822_frame(amp);                                
     }
+}
 
+void __isr dma_handler() {
+    uint32_t flags = dma_hw->ints0;
+    dma_hw->ints0 = flags;  // clear all that fired
+    //dma_hw->ints0 = 1u << dma_channel;  // clear interrupt flag
+    uint8_t filled_buffer = next_buffer;
+    next_buffer = 1  - next_buffer; // swap which buffer is playing
+    data_requested = true;       // signal CPU to refill the other one
+
+    dma_channel_set_read_addr(dma_channel, buffer[filled_buffer], true);  // restart DMA
+}
+
+void setup_audio_stream() {
     // ----- PIO setup -----
     PIO pio = pio0;
     uint sm = pio_claim_unused_sm(pio, true);
@@ -41,7 +59,7 @@ int main() {
     sm_config_set_out_pins(&c, PIN_MOSI, 1);
     sm_config_set_sideset_pins(&c, PIN_CS);             // sideset base = CS
     sm_config_set_out_shift(&c, false, true, 16);       // MSB-first, autopull 16
-    float div = clock_get_hz(clk_sys) / (2e6f * 3.0f);  // ~2 MHz bit clock
+    float div = clock_get_hz(clk_sys) / (FS * 53);  // ~2 MHz bit clock
     sm_config_set_clkdiv(&c, div);
 
     pio_gpio_init(pio, PIN_MOSI);
@@ -52,20 +70,46 @@ int main() {
     pio_sm_init(pio, sm, off, &c);
     pio_sm_set_enabled(pio, sm, true);
 
-    // ----- DMA → PIO -----
-    int chan = dma_claim_unused_channel(true);
-    dma_channel_config dc = dma_channel_get_default_config(chan);
-    channel_config_set_transfer_data_size(&dc, DMA_SIZE_16);
-    channel_config_set_dreq(&dc, DREQ_PIO0_TX0);
-    channel_config_set_read_increment(&dc, true);
-    channel_config_set_write_increment(&dc, false);
+    // DMA
+    int dma_a = dma_claim_unused_channel(true);
+    int dma_b = dma_claim_unused_channel(true);
 
-    dma_channel_configure(chan, &dc, &pio->txf[sm], frames, BUF_LEN,
-        true);  // start
+    dma_channel_config ca = dma_channel_get_default_config(dma_a);
+    channel_config_set_transfer_data_size(&ca, DMA_SIZE_16);
+    channel_config_set_dreq(&ca, DREQ_PIO0_TX0);
+    channel_config_set_chain_to(&ca, dma_b);  // after A → trigger B
+    channel_config_set_read_increment(&ca, true);
+    channel_config_set_write_increment(&ca, false);
+    
+    dma_channel_config cb = dma_channel_get_default_config(dma_b);
+    channel_config_set_transfer_data_size(&cb, DMA_SIZE_16);
+    channel_config_set_dreq(&cb, DREQ_PIO0_TX0);
+    channel_config_set_chain_to(&cb, dma_a);  // after B → trigger A
+    channel_config_set_read_increment(&cb, true);
+    channel_config_set_write_increment(&cb, false);
 
-    // Loop forever: restart DMA when buffer done
+    dma_channel_configure(dma_a, &ca, &pio0->txf[sm], buffer[0], BUF_LEN, false);
+    dma_channel_configure(dma_b, &cb, &pio0->txf[sm], buffer[1], BUF_LEN, false);
+
+    fill_buffer(buffer[0], BUF_LEN);
+    dma_start_channel_mask(1u << dma_a);
+    next_buffer = 1;
+    data_requested = true;
+    
+    dma_channel_set_irq0_enabled(dma_a, true);
+    dma_channel_set_irq1_enabled(dma_b, true);
+    irq_set_exclusive_handler(DMA_IRQ_0, dma_handler);
+    irq_set_enabled(DMA_IRQ_0, true);
+}
+
+int main() {
+    stdio_init_all();
+    setup_audio_stream();
     while (true) {
-        dma_channel_wait_for_finish_blocking(chan);
-        dma_channel_set_read_addr(chan, frames, true);
+        if (data_requested) {
+            data_requested = false;
+            fill_buffer(buffer[next_buffer], BUF_LEN);
+        }
+        tight_loop_contents();  // small wait hint
     }
 }
