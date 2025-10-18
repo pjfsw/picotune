@@ -12,6 +12,23 @@ static inline uint16_t mcp4822_frame(uint8_t ch, bool gain1x, uint16_t v12) {
     return ((ch & 1) << 15) | (1 << 14) | ((gain1x ? 1 : 0) << 13) | (1 << 12) | v12;
 }
 
+void write_value(uint16_t value) {
+    // --- Build frames ---
+    uint16_t left = mcp4822_frame(0, true, value);  // ~1.024 V (GA=1x)
+    uint8_t txl[2] = { left >> 8, left & 0xFF };
+    uint16_t right = mcp4822_frame(1, true, value);  // ~1.024 V (GA=1x)
+    uint8_t txr[2] = { right >> 8, right & 0xFF };
+
+    // --- Write A then B (CS wraps each 16-bit frame) ---
+    gpio_put(PIN_CS, 0); spi_write_blocking(spi0, txl, 2); gpio_put(PIN_CS, 1);
+    gpio_put(PIN_CS, 0); spi_write_blocking(spi0, txr, 2); gpio_put(PIN_CS, 1);
+
+    // --- Single LDAC pulse: latch both channels together ---
+    gpio_put(PIN_LDAC, 0);
+    sleep_us(1);                   // >= 100 ns; 1 us is safe
+    gpio_put(PIN_LDAC, 1);
+}
+
 int main() {
     stdio_init_all();
 
@@ -30,20 +47,10 @@ int main() {
     gpio_set_dir(PIN_LDAC, GPIO_OUT);
     gpio_put(PIN_LDAC, 1);        // LDAC idle high (active-low)
 
-    // --- Build frames ---
-    uint16_t A = mcp4822_frame(0, true, 0x800);  // ~1.024 V (GA=1x)
-    uint16_t B = mcp4822_frame(1, true, 0x400);  // ~0.512 V
-    uint8_t txA[2] = { A >> 8, A & 0xFF };
-    uint8_t txB[2] = { B >> 8, B & 0xFF };
-
-    // --- Write A then B (CS wraps each 16-bit frame) ---
-    gpio_put(PIN_CS, 0); spi_write_blocking(spi0, txA, 2); gpio_put(PIN_CS, 1);
-    gpio_put(PIN_CS, 0); spi_write_blocking(spi0, txB, 2); gpio_put(PIN_CS, 1);
-
-    // --- Single LDAC pulse: latch both channels together ---
-    gpio_put(PIN_LDAC, 0);
-    sleep_us(1);                   // >= 100 ns; 1 us is safe
-    gpio_put(PIN_LDAC, 1);
-
-    while (true) tight_loop_contents();  // hold outputs steady
+    while (true) {
+        write_value(0);
+        sleep_us(10);
+        write_value(0x800);
+        sleep_us(10);
+    }
 }
