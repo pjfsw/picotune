@@ -1,4 +1,8 @@
 {
   "C_Cpp.default.compilerPath": "/usr/bin/arm-none-eabi-gcc",
-  "C_Cpp.default.compileCommands": "${workspaceFolder}/compile_commands.json"
+  "C_Cpp.default.compileCommands": "${workspaceFolder}/compile_commands.json",
+  "files.associations": {
+    "stdlib.h": "c",
+    "mcp4822.pio.h": "c"
+  }
 }
