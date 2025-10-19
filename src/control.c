@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include "samplerate.h"
 #include "dsp_param.h"
+#include "wavetable.h"
 
 /*
 #define TABLE_SIZE 256
@@ -20,12 +21,18 @@ volatile DspParam dsp_param;
 
 //f=440⋅2(n−69)/12
 
+
+void control_init() {
+    dsp_param.volume = 0;
+    wavetable_init();
+    dsp_param.wavetable = get_wavetable_for_frequency(440);
+}
+
 #define VOLUME_STEPS 64
 
 void control_run() {
     //init_sine_table();
     //uint8_t sinofs = 0;
-    dsp_param.volume = 0;
     uint32_t  frequency = 8*440*8;
     dsp_param.phase_add =  (uint32_t)((((uint64_t)frequency) << 29) / SAMPLE_RATE);
     //dsp_param.phase_add = 42792969;
@@ -53,6 +60,7 @@ void control_run() {
     while (true) {
         int ch = getchar_timeout_us(0);
         if (ch > 0) {
+            printf("keypress\n");
             int n = -1;
             switch (ch) {
                 case '+':
@@ -109,6 +117,7 @@ void control_run() {
             }
             if (n >= 0) {
                 uint32_t freq = freqtable[n+12*oct];
+                dsp_param.wavetable = get_wavetable_for_frequency(freq>>3);         
                 vel = 1023;
                 dsp_param.phase_add = (uint32_t)((((uint64_t)freq) << 29) / SAMPLE_RATE);
             }

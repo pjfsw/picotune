@@ -17,15 +17,10 @@ add_executable(picotune
     src/dsp.c
     src/main.c
     src/synth.c
-
+    src/wavetable.c
 )
 
 pico_generate_pio_header(picotune ${CMAKE_CURRENT_LIST_DIR}/src/mcp4822.pio)
-
-#target_link_libraries(picotune
-    #pico_stdlib
-    #hardware_pio    
-#)
 
 target_link_libraries(picotune
     pico_stdlib
