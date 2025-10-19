@@ -25,7 +25,7 @@ volatile DspParam dsp_param;
 void control_init() {
     dsp_param.volume = 0;
     wavetable_init();
-    dsp_param.wavetable = get_wavetable_for_frequency(440);
+    get_wavetable_for_frequency(440, &dsp_param);
 }
 
 #define VOLUME_STEPS 64
@@ -117,7 +117,7 @@ void control_run() {
             }
             if (n >= 0) {
                 uint32_t freq = freqtable[n+12*oct];
-                dsp_param.wavetable = get_wavetable_for_frequency(freq>>3);         
+                get_wavetable_for_frequency(freq>>3, &dsp_param);         
                 vel = 1023;
                 dsp_param.phase_add = (uint32_t)((((uint64_t)freq) << 29) / SAMPLE_RATE);
             }
