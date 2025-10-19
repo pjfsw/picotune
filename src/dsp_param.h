@@ -8,7 +8,7 @@
 #define WAVETABLE_SHIFT (32-WAVETABLE_BITS)
 
 typedef struct {
-    uint8_t volume;
+    uint16_t volume;
     uint32_t phase_add;
 } DspParam;
 
