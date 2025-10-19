@@ -101,6 +101,7 @@ static void setup_audio_stream() {
 
 
 void dsp_run() {
+    synth_init();
     setup_audio_stream();
     while (true) {
         if (data_requested) {

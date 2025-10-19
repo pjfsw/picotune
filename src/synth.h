@@ -3,6 +3,8 @@
 
 #include "pico/stdlib.h"
 
+void synth_init();
+
 int32_t synth_next_sample();
 
 #endif

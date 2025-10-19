@@ -11,3 +11,18 @@ Recipe
 - Some analog spices
 - Audio awesomeness
 
+Circuit
+-------
+
+Basic concept: Pico connected to DAC, connected to a DC-blocking circuit, connected to a ~16 kHz 6 dB/oct lowpass filter
+
+
+[Raspberry Pi Pico] -- GPIO 17 ------ [MCP4822 CS] -- Out --- (+)10 uF(-) -+----- 1 kOhm ----+------ Lineout   
+                       GPIO 18 ------ SCK                                  |                 |
+                       GPIO 19 ------ SDI                               4.7kOhm             10nF
+                                                                           |                 |
+                                                                          Gnd               Gnd
+
+                 
+
+
