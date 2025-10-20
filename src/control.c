@@ -24,7 +24,7 @@ volatile DspParam dsp_param;
 
 void control_init() {
     dsp_param.volume = 0;
-    wavetable_init();
+    //wavetable_init();
     get_wavetable_for_frequency(440, &dsp_param);
 }
 
