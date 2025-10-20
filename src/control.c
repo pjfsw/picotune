@@ -6,6 +6,7 @@
 #include "dsp_param.h"
 #include "wavetable.h"
 
+
 /*
 #define TABLE_SIZE 256
 static uint8_t sine_table[TABLE_SIZE];
@@ -17,15 +18,18 @@ static void init_sine_table(void) {
     }
 }
 */
-volatile DspParam dsp_param;
 
 //f=440⋅2(n−69)/12
 
+extern volatile DspParam dsp_param[];
 
 void control_init() {
-    dsp_param.volume = 0;
-    //wavetable_init();
-    get_wavetable_for_frequency(440, &dsp_param);
+    for (int i = 0; i < NUMBER_OF_VOICES; i++) {
+        get_wavetable_for_frequency(440, &dsp_param[i]);
+        dsp_param[i].phase_add = 0;
+        dsp_param[i].volume = 0;
+        dsp_param[i].control_id = 0;
+    }
 }
 
 #define VOLUME_STEPS 64
@@ -33,8 +37,8 @@ void control_init() {
 void control_run() {
     //init_sine_table();
     //uint8_t sinofs = 0;
-    uint32_t  frequency = 8*440*8;
-    dsp_param.phase_add =  (uint32_t)((((uint64_t)frequency) << 29) / SAMPLE_RATE);
+    //uint32_t  frequency = 8*440*8;
+    //dsp_param.phase_add =  (uint32_t)((((uint64_t)frequency) << 29) / SAMPLE_RATE);
     //dsp_param.phase_add = 42792969;
 
     uint32_t freqtable[128];
@@ -56,7 +60,12 @@ void control_run() {
     }
 
     int oct = 4;
-    uint16_t vel = 0;
+    uint16_t vel[NUMBER_OF_VOICES];
+    for (int i = 0; i < NUMBER_OF_VOICES; i++) {
+        vel[i] = 0;
+    }
+
+    int next_voice = 0;
     while (true) {
         int ch = getchar_timeout_us(0);
         if (ch > 0) {
@@ -117,17 +126,23 @@ void control_run() {
             }
             if (n >= 0) {
                 uint32_t freq = freqtable[n+12*oct];
-                get_wavetable_for_frequency(freq>>3, &dsp_param);         
-                vel = 1023;
-                dsp_param.phase_add = (uint32_t)((((uint64_t)freq) << 29) / SAMPLE_RATE);
+                get_wavetable_for_frequency(freq>>3, &dsp_param[next_voice]);         
+                vel[next_voice] = 2047;
+                dsp_param[next_voice].phase_add = (uint32_t)((((uint64_t)freq) << 29) / SAMPLE_RATE);
+                dsp_param[next_voice].volume = 63;
+                dsp_param[next_voice].control_id++;
+                next_voice = (next_voice + 1) % NUMBER_OF_VOICES;
             }
         }
         sleep_ms(1);
-        if (vel > 0) {
-            vel--;
-            dsp_param.volume = volmap[vel>>4]; 
-        } else {
-            dsp_param.volume = 0;
+        for (int i = 0 ; i < NUMBER_OF_VOICES; i++) {
+            if (vel[i] > 0) {
+                vel[i]--;
+                dsp_param[i].volume = volmap[vel[i]>>5]; 
+            } else {
+                dsp_param[i].volume = 0;
+            }
+            dsp_param[i].control_id++;
         }
 
         tight_loop_contents();  // small wait hint

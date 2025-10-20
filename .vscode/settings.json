@@ -3,6 +3,7 @@
   "C_Cpp.default.compileCommands": "${workspaceFolder}/compile_commands.json",
   "files.associations": {
     "stdlib.h": "c",
-    "mcp4822.pio.h": "c"
+    "mcp4822.pio.h": "c",
+    "chrono": "c"
   }
 }
