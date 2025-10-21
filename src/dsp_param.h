@@ -22,6 +22,7 @@ typedef struct {
     uint8_t phase_diff;
     Waveform waveform;
     bool highpass;
+    uint32_t noise_phase_inc;
 } DspParam;
 
 #endif

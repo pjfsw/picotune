@@ -4,7 +4,7 @@
 #include "pico/stdlib.h"
 #include "voice.h"
 
-void synth_init();
+void synth_init(Voice *voice);
 
 int32_t synth_next_sample(Voice *voice);
 

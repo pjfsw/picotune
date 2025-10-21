@@ -133,6 +133,26 @@ int get_note_from_key(int ch) {
     return n;
 }
 
+// Integer: phase_inc = round(f_update / fs * 2^32)
+static inline uint32_t phase_inc_from_rate(uint32_t f_update) {
+    if (f_update >= SAMPLE_RATE) {
+        return 0xFFFFFFFFu; // extremely fast; will wrap a lot
+    }
+    uint64_t num = ((uint64_t)f_update << 32); // f_update * 2^32
+    // + fs/2 for rounding
+    return (uint32_t)((num + ((uint32_t)SAMPLE_RATE>>1)) / (uint32_t)SAMPLE_RATE);
+}
+
+uint32_t get_noise_phase_inc(uint32_t f_update) {
+        // Clamp to Nyquist to avoid useless alias brightness
+    if (f_update > (uint32_t)SAMPLE_RATE/2) {
+        f_update = (uint32_t)SAMPLE_RATE/2;
+    }
+    if (f_update < 1) {
+        f_update = 1;
+    }
+    return phase_inc_from_rate(f_update);
+}
 
 void control_run() {
     uint32_t freqtable[128];
@@ -190,16 +210,22 @@ void control_run() {
             }
 
             if (n >= 0) {
-                uint32_t freq = freqtable[n+12*oct];
-                vel[next_voice] = 2047;                
-                pwm[next_voice] = 16384;
-                dsp_param[next_voice].phase_diff = pwm[next_voice]>>2;
-                dsp_param[next_voice].phase_add = (uint32_t)((((uint64_t)freq) << 29) / SAMPLE_RATE);
-                dsp_param[next_voice].volume = 63;
-                dsp_param[next_voice].waveform = waveform;
-                get_wavetable_for_frequency(freq>>3, &dsp_param[next_voice]);         
-                dsp_param[next_voice].control_id++;                
-                next_voice = (next_voice + 1) % NUMBER_OF_VOICES;
+                n = n+12*oct;
+                if (n < 128) {
+                    uint32_t freq = freqtable[n];
+                    vel[next_voice] = 2047;                
+                    pwm[next_voice] = 16384;
+                    dsp_param[next_voice].phase_diff = pwm[next_voice]>>2;
+                    dsp_param[next_voice].phase_add = (uint32_t)((((uint64_t)freq) << 29) / SAMPLE_RATE);
+                    dsp_param[next_voice].volume = 63;
+                    dsp_param[next_voice].waveform = waveform;
+                    get_wavetable_for_frequency(freq>>3, &dsp_param[next_voice]);         
+                    if (waveform == WAV_NOISE) {
+                        dsp_param[next_voice].noise_phase_inc = get_noise_phase_inc(freq>>1);
+                    }
+                    dsp_param[next_voice].control_id++;                
+                    next_voice = (next_voice + 1) % NUMBER_OF_VOICES;
+                }
             }
         }
         sleep_ms(1);

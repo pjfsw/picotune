@@ -36,7 +36,6 @@ static inline uint16_t mcp4822_frame(uint16_t v12) {
 
 
 static void copy_voice_control(int voice) {
-    voices[voice].voice_param.control_id = dsp_param[voice].control_id;
     voices[voice].voice_param.phase_add = dsp_param[voice].phase_add;
     voices[voice].voice_param.table_weight = dsp_param[voice].table_weight;
     voices[voice].voice_param.volume = dsp_param[voice].volume;
@@ -46,6 +45,9 @@ static void copy_voice_control(int voice) {
     voices[voice].voice_param.highpass = dsp_param[voice].highpass;
     voices[voice].voice_param.use_phase_diff = dsp_param[voice].waveform == WAV_SQUARE;
     voices[voice].voice_param.use_noise = dsp_param[voice].waveform == WAV_NOISE;
+    voices[voice].voice_param.amp_shift = dsp_param[voice].waveform < 2 ? 1 : 0;
+    voices[voice].noise.phase_inc = dsp_param[voice].noise_phase_inc;
+    voices[voice].voice_param.control_id = dsp_param[voice].control_id;
 }
 
 static void fill_buffer(uint16_t *buffer, uint16_t buffer_size) {

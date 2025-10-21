@@ -13,9 +13,12 @@
 #define HP_400HZ 0x78C454BD
 #define HP_800HZ 0x7210D7DB
 
-void synth_init() {
-    //ramp.current = 0;
-    //ramp.remaining = 0;
+void synth_init(Voice *voice) {
+    voice->noise.lfsr = (uint32_t)time_us_32() & 0x7FFFFF;
+     if (!voice->noise.lfsr) {
+         voice->noise.lfsr = 1;
+     }
+    voice->noise.phase = 0;
 }
 
 static int64_t get_oscillator(VoiceParam *voice_param, uint32_t phase) {
@@ -91,14 +94,38 @@ static inline int32_t svf_lowpass(SVF *s, int32_t x, int32_t f_q31, int32_t q_q3
     return s->lp; // low-pass output
 }
 
+static inline uint32_t lfsr23_step(uint32_t s){
+    // taps: bit22 ^ bit17 -> LSB; 23-bit state kept in 0..22
+    uint32_t fb = ((s >> 22) ^ (s >> 17)) & 1u;
+    s = ((s << 1) & 0x7FFFFFu) | fb;
+    if (!s) {
+        s = 1;
+    }
+    return s;
+}
+
+static inline int32_t noise23_next(Noise *n){
+    uint32_t p = n->phase + n->phase_inc;
+    // Single-wrap detect; for extreme rates you can loop:
+    if (p < n->phase) {
+        n->lfsr = lfsr23_step(n->lfsr);
+    }
+    n->phase = p;
+
+    int32_t v = (int32_t)((n->lfsr >> 7) & 0xFFFF);
+    v = (v - 32768) << 16;
+    return v;
+}
+
 int32_t synth_next_sample(Voice *voice) {
     voice->phase += voice->voice_param.phase_add;
-    int64_t osc1 = voice->voice_param.use_noise ? 0 : get_oscillator(&voice->voice_param, voice->phase);
+    int64_t osc1 = voice->voice_param.use_noise ? noise23_next(&voice->noise) : get_oscillator(&voice->voice_param, voice->phase);
     int64_t out = osc1;
     if (voice->voice_param.use_phase_diff) {
         int64_t osc2 = get_oscillator(&voice->voice_param, voice->phase + voice->voice_param.phase_diff);
-        out = (osc2-osc1)>>1;
+        out = (osc2-osc1);
     }
+    out = out >> voice->voice_param.amp_shift;
     
     uint16_t new_volume = voice->voice_param.volume;
     if (voice->ramp.target != new_volume) {
