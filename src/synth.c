@@ -46,7 +46,7 @@ static inline int32_t highpass(HPState *st, int32_t x, int32_t a_q31) {
     // y = (x - x1) + a*y1
     int64_t acc = (int64_t)a_q31 * (int64_t)st->y1;  // Q31 * Q31 = Q62
     int32_t ay1 = (int32_t)(acc >> 31);              // back to Q31
-    int64_t y = (int64_t)(x - st->x1) + (int64_t)ay1;
+    int64_t y = (int64_t)x - (int64_t)st->x1 + (int64_t)ay1;
 
     // Optional: saturate to 32-bit
     if (y > INT32_MAX) {
@@ -123,9 +123,9 @@ int32_t synth_next_sample(Voice *voice) {
     int64_t out = osc1;
     if (voice->voice_param.use_phase_diff) {
         int64_t osc2 = get_oscillator(&voice->voice_param, voice->phase + voice->voice_param.phase_diff);
-        out = (osc2-osc1);
+        out = (osc2-osc1)>>1;
     }
-    
+
     uint16_t new_volume = voice->voice_param.volume;
     if (voice->ramp.target != new_volume) {
         voice->ramp.target = new_volume;

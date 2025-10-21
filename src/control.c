@@ -215,7 +215,7 @@ void control_run() {
                     uint32_t freq = freqtable[n];
                     vel[next_voice] = 2047;                
                     pwm[next_voice] = 16384;
-                    dsp_param[next_voice].phase_diff = pwm[next_voice]>>2;
+                    dsp_param[next_voice].phase_diff = pwm[next_voice]>>8;
                     dsp_param[next_voice].phase_add = (uint32_t)((((uint64_t)freq) << 29) / SAMPLE_RATE);
                     dsp_param[next_voice].volume = 63;
                     dsp_param[next_voice].waveform = waveform;
@@ -232,9 +232,9 @@ void control_run() {
         for (int i = 0 ; i < NUMBER_OF_VOICES; i++) {
             if (vel[i] > 0) {
                 vel[i]--;
-                pwm[i]++;
+                pwm[i]+=16;
                 dsp_param[i].volume = volmap[vel[i]>>5]; 
-                dsp_param[i].phase_diff = pwm[i]>>2;
+                dsp_param[i].phase_diff = pwm[i]>>8;
             } else {
                 dsp_param[i].volume = 0;
             }
