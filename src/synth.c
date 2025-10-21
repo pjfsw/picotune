@@ -37,7 +37,7 @@ static int64_t get_oscillator(VoiceParam *voice_param, uint32_t phase) {
     int32_t b1 = (int32_t)vb1 * (int32_t)(FRAC_MASK-remainder) * (int32_t)(table_weight);
     int32_t b2 = (int32_t)vb2 * (int32_t)remainder * (int32_t)(table_weight);
 
-    return (int64_t)(a1+a2+b1+b2);
+    return (int64_t)a1+(int64_t)a2+(int64_t)b1+(int64_t)b2;
 }
 
 
@@ -125,7 +125,6 @@ int32_t synth_next_sample(Voice *voice) {
         int64_t osc2 = get_oscillator(&voice->voice_param, voice->phase + voice->voice_param.phase_diff);
         out = (osc2-osc1);
     }
-    out = out >> voice->voice_param.amp_shift;
     
     uint16_t new_volume = voice->voice_param.volume;
     if (voice->ramp.target != new_volume) {

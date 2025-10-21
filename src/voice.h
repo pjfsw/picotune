@@ -11,7 +11,6 @@ typedef struct {
     uint32_t control_id;
     uint32_t phase_diff;
     uint8_t table_weight;
-    uint8_t amp_shift;
     bool highpass;
     bool use_phase_diff;
     bool use_noise;    

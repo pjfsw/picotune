@@ -45,7 +45,6 @@ static void copy_voice_control(int voice) {
     voices[voice].voice_param.highpass = dsp_param[voice].highpass;
     voices[voice].voice_param.use_phase_diff = dsp_param[voice].waveform == WAV_SQUARE;
     voices[voice].voice_param.use_noise = dsp_param[voice].waveform == WAV_NOISE;
-    voices[voice].voice_param.amp_shift = dsp_param[voice].waveform < 2 ? 1 : 0;
     voices[voice].noise.phase_inc = dsp_param[voice].noise_phase_inc;
     voices[voice].voice_param.control_id = dsp_param[voice].control_id;
 }
