@@ -13,6 +13,7 @@ typedef struct {
     uint16_t volume;
     uint8_t table_weight;
     uint8_t phase_diff;
+    bool highpass;
 } DspParam;
 
 #endif

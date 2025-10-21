@@ -8,6 +8,10 @@
 #define FRAC_SHIFT (WAVETABLE_SHIFT-FRAC_BITS)
 #define FRAC_MASK ((1<<FRAC_BITS)-1)
 
+#define HP_120HZ 0x7DD3BEF0
+#define HP_200HZ 0x7C7E5B51
+#define HP_400HZ 0x78C454BD
+#define HP_800HZ 0x7210D7DB
 
 void synth_init() {
     //ramp.current = 0;
@@ -33,6 +37,65 @@ static int64_t get_oscillator(VoiceParam *voice_param, uint32_t phase) {
     return (int64_t)(a1+a2+b1+b2);
 }
 
+// a in Q31, e.g. for 80 Hz at 44.1k:  a_q31 = 0x7E8CA0EA (≈0.9886666)
+static inline int32_t highpass(HPState *st, int32_t x, int32_t a_q31) {
+    // y = (x - x1) + a*y1
+    int64_t acc = (int64_t)a_q31 * (int64_t)st->y1;  // Q31 * Q31 = Q62
+    int32_t ay1 = (int32_t)(acc >> 31);              // back to Q31
+    int64_t y = (int64_t)(x - st->x1) + (int64_t)ay1;
+
+    // Optional: saturate to 32-bit
+    if (y > INT32_MAX) {
+        y = INT32_MAX;
+    }
+    if (y < INT32_MIN) {
+        y = INT32_MIN;
+    }
+
+    st->x1 = x;
+    st->y1 = (int32_t)y;
+    return (int32_t)y;
+}
+
+// Q31 multiply: (a*b)>>31 with 64-bit intermediate
+static inline int32_t q31_mul(int32_t a, int32_t b) {
+    return (int32_t)(( (int64_t)a * (int64_t)b ) >> 31);
+}
+
+// Q31 soft clip: ~tanh(x) using cubic
+static inline int32_t softclip_q31(int32_t x){
+    int64_t x3 = ( (int64_t)x * x >> 31 ) * x; // x^3 in Q31 with 64-bit temp
+    return x - (int32_t)(x3 / 3);              // y ≈ x - x^3/3
+}
+
+
+static inline int32_t svf_lowpass(SVF *s, int32_t x, int32_t f_q31, int32_t q_q31) {
+    // hp = x - lp - q*bp
+    int32_t qbp = q31_mul(q_q31, s->bp);
+    int32_t hp  = x - s->lp - qbp;
+
+    // bp += f*hp
+    s->bp += q31_mul(f_q31, hp);
+
+    // lp += f*bp
+    s->lp += q31_mul(f_q31, s->bp);
+
+    // Optional gentle clamp to avoid windup in extreme settings
+    if (s->lp > INT32_MAX) {
+        s->lp = INT32_MAX;
+    }
+    if (s->lp < INT32_MIN) {
+         s->lp = INT32_MIN;
+    }
+    if (s->bp > INT32_MAX) {
+         s->bp = INT32_MAX;
+    }
+    if (s->bp < INT32_MIN) {
+         s->bp = INT32_MIN;
+    }
+
+    return s->lp; // low-pass output
+}
 
 int32_t synth_next_sample(Voice *voice) {
     voice->phase += voice->voice_param.phase_add;
@@ -55,6 +118,15 @@ int32_t synth_next_sample(Voice *voice) {
     }
    
     int64_t tmp = ((int64_t)out * (int64_t)voice->ramp.current);
-    tmp = tmp >> 16; // compensate for remainder (8 bits) and table weight (8 bits)
-    return tmp;
+    int32_t tmp32 = tmp >> 16; // compensate for remainder (8 bits) and table weight (8 bits)    
+    if (voice->voice_param.highpass) {
+        tmp32 = highpass(&voice->hp_state, tmp32, HP_200HZ);
+    } else {
+        // int32_t f_q31 = (int32_t)roundf( (2.0f * sinf((float)M_PI * Fc / Fs)) * 2147483648.0f );
+        // int32_t q_q31 = (int32_t)roundf(q_damp * 2147483648.0f);
+
+
+        tmp32 = svf_lowpass(&voice->svf, tmp32, 0x03A5B2BC, 0x5999999A);
+    }
+    return tmp32;
 }

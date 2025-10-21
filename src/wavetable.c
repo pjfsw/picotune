@@ -17,7 +17,7 @@ void get_wavetable_for_frequency(float f, volatile DspParam *dsp_param) {
     if ((midi_note > 1) && (midi_note < WAVETABLE_COUNT * WAVETABLE_NOTES_PER_TABLE)) { 
         t = midi_note >> WAVETABLE_NOTES_PER_TABLE_SHIFT;
     }
-    printf("Freq %f, table #%d\n", f, t);
+    printf("Freq %f, midi note %d, table #%d\n", f, midi_note, t);
     dsp_param->wavetable = wavetables[t];
     dsp_param->wavetable2 = wavetables[t+1];  
     dsp_param->table_weight = table_weight[midi_note & 15];

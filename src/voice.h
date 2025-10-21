@@ -11,7 +11,19 @@ typedef struct {
     uint32_t control_id;
     uint32_t phase_diff;
     uint8_t table_weight;
+    bool highpass;
 } VoiceParam;
+
+// Highpass stuff
+typedef struct {
+    int32_t x1;   // previous input
+    int32_t y1;   // previous output
+} HPState;
+
+// Lowpass stuff
+typedef struct {
+    int32_t lp, bp;
+} SVF;
 
 typedef struct {
     uint8_t target;
@@ -23,6 +35,8 @@ typedef struct {
 typedef struct {
     VoiceParam voice_param;    
     Ramp ramp;
+    HPState hp_state;
+    SVF svf;
     uint32_t phase;
 } Voice;
 

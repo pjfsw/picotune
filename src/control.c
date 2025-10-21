@@ -174,6 +174,14 @@ void control_run() {
                         oct--;
                     }
                     break;
+                case ' ':
+                    for (int i = 0 ; i < NUMBER_OF_VOICES; i++) {                        
+                        dsp_param[i].highpass = !dsp_param[i].highpass;
+                        bool on = dsp_param[i].highpass;
+                        dsp_param[i].control_id++;
+                        printf("Highpass: %s\n", on ? "on" : "off");
+                    }
+                    break;
             }
 
             if (n >= 0) {
