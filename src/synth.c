@@ -37,6 +37,7 @@ static int64_t get_oscillator(VoiceParam *voice_param, uint32_t phase) {
     return (int64_t)(a1+a2+b1+b2);
 }
 
+
 // a in Q31, e.g. for 80 Hz at 44.1k:  a_q31 = 0x7E8CA0EA (≈0.9886666)
 static inline int32_t highpass(HPState *st, int32_t x, int32_t a_q31) {
     // y = (x - x1) + a*y1
@@ -61,13 +62,6 @@ static inline int32_t highpass(HPState *st, int32_t x, int32_t a_q31) {
 static inline int32_t q31_mul(int32_t a, int32_t b) {
     return (int32_t)(( (int64_t)a * (int64_t)b ) >> 31);
 }
-
-// Q31 soft clip: ~tanh(x) using cubic
-static inline int32_t softclip_q31(int32_t x){
-    int64_t x3 = ( (int64_t)x * x >> 31 ) * x; // x^3 in Q31 with 64-bit temp
-    return x - (int32_t)(x3 / 3);              // y ≈ x - x^3/3
-}
-
 
 static inline int32_t svf_lowpass(SVF *s, int32_t x, int32_t f_q31, int32_t q_q31) {
     // hp = x - lp - q*bp
@@ -99,9 +93,12 @@ static inline int32_t svf_lowpass(SVF *s, int32_t x, int32_t f_q31, int32_t q_q3
 
 int32_t synth_next_sample(Voice *voice) {
     voice->phase += voice->voice_param.phase_add;
-    int64_t osc1 = get_oscillator(&voice->voice_param, voice->phase);
-    int64_t osc2 = get_oscillator(&voice->voice_param, voice->phase + voice->voice_param.phase_diff);
-    int64_t out = (osc2-osc1)>>1;
+    int64_t osc1 = voice->voice_param.use_noise ? 0 : get_oscillator(&voice->voice_param, voice->phase);
+    int64_t out = osc1;
+    if (voice->voice_param.use_phase_diff) {
+        int64_t osc2 = get_oscillator(&voice->voice_param, voice->phase + voice->voice_param.phase_diff);
+        out = (osc2-osc1)>>1;
+    }
     
     uint16_t new_volume = voice->voice_param.volume;
     if (voice->ramp.target != new_volume) {
@@ -121,12 +118,12 @@ int32_t synth_next_sample(Voice *voice) {
     int32_t tmp32 = tmp >> 16; // compensate for remainder (8 bits) and table weight (8 bits)    
     if (voice->voice_param.highpass) {
         tmp32 = highpass(&voice->hp_state, tmp32, HP_200HZ);
-    } else {
+    }
+    // if voice->voice_param.lowpass) {
         // int32_t f_q31 = (int32_t)roundf( (2.0f * sinf((float)M_PI * Fc / Fs)) * 2147483648.0f );
         // int32_t q_q31 = (int32_t)roundf(q_damp * 2147483648.0f);
 
-
-        tmp32 = svf_lowpass(&voice->svf, tmp32, 0x03A5B2BC, 0x5999999A);
-    }
+        //tmp32 = svf_lowpass(&voice->svf, tmp32, 0x03A5B2BC, 0x5999999A);
+    //}
     return tmp32;
 }

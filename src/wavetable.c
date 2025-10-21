@@ -18,8 +18,13 @@ void get_wavetable_for_frequency(float f, volatile DspParam *dsp_param) {
         t = midi_note >> WAVETABLE_NOTES_PER_TABLE_SHIFT;
     }
     printf("Freq %f, midi note %d, table #%d\n", f, midi_note, t);
-    dsp_param->wavetable = wavetables[t];
-    dsp_param->wavetable2 = wavetables[t+1];  
+    if (dsp_param->waveform == WAV_TRIANGLE) {
+        dsp_param->wavetable = wavetables_triangle[t];
+        dsp_param->wavetable2 = wavetables_triangle[t+1];  
+    } else {
+        dsp_param->wavetable = wavetables_saw[t];
+        dsp_param->wavetable2 = wavetables_saw[t+1];  
+    }
     dsp_param->table_weight = table_weight[midi_note & 15];
     printf("Table weight %d\n", dsp_param->table_weight);
 }

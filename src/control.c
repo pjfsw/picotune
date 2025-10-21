@@ -158,6 +158,7 @@ void control_run() {
     }
 
     int next_voice = 0;
+    int waveform = WAV_SAW;
     while (true) {
         int ch = getchar_timeout_us(0);
         if (ch > 0) {
@@ -182,17 +183,21 @@ void control_run() {
                         printf("Highpass: %s\n", on ? "on" : "off");
                     }
                     break;
+                case '<':
+                    waveform = (waveform + 1) & 3;
+                    printf("Waveform %d\n", waveform); 
+                    break;                    
             }
 
             if (n >= 0) {
                 uint32_t freq = freqtable[n+12*oct];
-                get_wavetable_for_frequency(freq>>3, &dsp_param[next_voice]);         
-                vel[next_voice] = 2047;
-                
+                vel[next_voice] = 2047;                
                 pwm[next_voice] = 16384;
                 dsp_param[next_voice].phase_diff = pwm[next_voice]>>2;
                 dsp_param[next_voice].phase_add = (uint32_t)((((uint64_t)freq) << 29) / SAMPLE_RATE);
                 dsp_param[next_voice].volume = 63;
+                dsp_param[next_voice].waveform = waveform;
+                get_wavetable_for_frequency(freq>>3, &dsp_param[next_voice]);         
                 dsp_param[next_voice].control_id++;                
                 next_voice = (next_voice + 1) % NUMBER_OF_VOICES;
             }

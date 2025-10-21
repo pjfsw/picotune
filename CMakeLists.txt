@@ -18,7 +18,8 @@ add_executable(picotune
     src/main.c
     src/synth.c
     src/wavetable.c
-    src/wavetable_data.c
+    src/wavetable_saw.c
+    src/wavetable_triangle.c
 )
 
 pico_generate_pio_header(picotune ${CMAKE_CURRENT_LIST_DIR}/src/mcp4822.pio)

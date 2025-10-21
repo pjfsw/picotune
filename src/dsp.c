@@ -44,6 +44,8 @@ static void copy_voice_control(int voice) {
     voices[voice].voice_param.wavetable2 = dsp_param[voice].wavetable2;
     voices[voice].voice_param.phase_diff = dsp_param[voice].phase_diff << 24;
     voices[voice].voice_param.highpass = dsp_param[voice].highpass;
+    voices[voice].voice_param.use_phase_diff = dsp_param[voice].waveform == WAV_SQUARE;
+    voices[voice].voice_param.use_noise = dsp_param[voice].waveform == WAV_NOISE;
 }
 
 static void fill_buffer(uint16_t *buffer, uint16_t buffer_size) {

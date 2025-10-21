@@ -12,7 +12,17 @@ typedef struct {
     uint32_t phase_diff;
     uint8_t table_weight;
     bool highpass;
+    bool use_phase_diff;
+    bool use_noise;
 } VoiceParam;
+
+// 23-bit LFSR + variable-rate clock, integer-only
+typedef struct {
+    uint32_t lfsr;       // use lower 23 bits, never 0
+    uint32_t phase;      // 32-bit phase accumulator
+    uint32_t phase_inc;  // maps desired update rate to 32-bit increment
+} Noise;
+
 
 // Highpass stuff
 typedef struct {
@@ -36,6 +46,7 @@ typedef struct {
     VoiceParam voice_param;    
     Ramp ramp;
     HPState hp_state;
+    Noise noise;
     SVF svf;
     uint32_t phase;
 } Voice;

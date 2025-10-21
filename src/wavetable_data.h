@@ -8,6 +8,7 @@
 #define WAVETABLE_SIZE (1<<WAVETABLE_BITS)
 #define WAVETABLE_SHIFT (32-WAVETABLE_BITS)
 
-extern const uint32_t wavetables[WAVETABLE_COUNT][WAVETABLE_SIZE];
+extern const uint32_t wavetables_saw[WAVETABLE_COUNT][WAVETABLE_SIZE];
+extern const uint32_t wavetables_triangle[WAVETABLE_COUNT][WAVETABLE_SIZE];
 
 #endif
