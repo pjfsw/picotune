@@ -133,16 +133,6 @@ int get_note_from_key(int ch) {
     return n;
 }
 
-
-// PolyBLEP
-static void polyblep_voice_recalc(DspParam* dsp_param) {
-    dsp_param->dt_q31 = (int32_t)(dsp_param->phase_add >> 1);  // ~ phase step as Q1.31
-    // inv_dt = 1/dt in Q1.31  (guard tiny dt)
-    int32_t dt = dsp_param->dt_q31 <= 0 ? 1 : dsp_param->dt_q31;
-    // (1<<31) in Q1.31 equals 1.0; we compute inv using 64-bit for precision
-    dsp_param->inv_dt_q31 = (int32_t)( ((int64_t)1 << 62) / dt );  // Q1.31 reciprocal
-}
-
 // Integer: phase_inc = round(f_update / fs * 2^32)
 static inline uint32_t phase_inc_from_rate(uint32_t f_update) {
     if (f_update >= SAMPLE_RATE) {
@@ -223,7 +213,6 @@ void control_run() {
                 n = n+12*oct;
                 if (n < 128) {
                     uint32_t freq = freqtable[n];
-                    set_frequency(next_voice, freq);
                     vel[next_voice] = 2047;                
                     pwm[next_voice] = 16384;
                     dsp_param[next_voice].phase_diff = pwm[next_voice]>>8;
@@ -231,7 +220,6 @@ void control_run() {
                     dsp_param[next_voice].volume = 63;
                     dsp_param[next_voice].waveform = waveform;
                     get_wavetable_for_frequency(freq>>3, &dsp_param[next_voice]);         
-                    polyblep_voice_recalc(&dsp_param[next_voice]);
                     if (waveform == WAV_NOISE) {
                         dsp_param[next_voice].noise_phase_inc = get_noise_phase_inc(freq>>1);
                     }

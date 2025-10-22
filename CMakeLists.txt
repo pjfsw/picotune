@@ -16,7 +16,6 @@ add_executable(picotune
     src/control.c
     src/dsp.c
     src/main.c
-    src/polyblep_synth.c
     src/synth.c
     src/wavetable.c
     src/wavetable_saw.c
