@@ -11,6 +11,14 @@ Recipe
 - Some analog spices
 - Audio awesomeness
 
+Preliminary specs
+-----------------
+- 4 synth voices
+- PWM square, sawtooth, triangle or noise per voice
+- 64 volume levels per voice (1 dB steps)
+- Optional highpass filter @ 120 Hz per voice
+- Optional lowpass filter TBD
+
 Circuit
 -------
 
