@@ -50,18 +50,11 @@ static inline int32_t frac_sub_q31(int32_t a, int32_t b) {
     return r;
 }
 
-// Saw: y = 2t - 1  then subtract PolyBLEP at wrap
-static inline int32_t osc_saw_q31(Voice *voice) {
-    int32_t t = q31_from_q32(voice->phase);                 // Q1.31 in [0,1)
-    int32_t y = (int32_t)(((int64_t)t << 1) - INT32_C(0x7FFFFFFF)); // 2t-1
-    int32_t blep = polyblep_q31(t, voice->voice_param.poly_blep.dt_q31, voice->voice_param.poly_blep.inv_dt_q31);
-    return y - blep; // subtract at the single discontinuity
-}
-
 // PWM square: naive square +/-1 plus PolyBLEP at both edges
-static inline int32_t osc_pwm_q31(Voice* voice, int32_t duty) {
+static inline int32_t osc_pwm_q31(Voice* voice) {
     PolyBlep *poly_blep = &voice->voice_param.poly_blep;
     int32_t t = q31_from_q32(voice->phase);             // [0,1)
+    int32_t duty = voice->voice_param.phase_add;                         // [0,1)
 
     int32_t y = (t < duty) ? INT32_C(0x7FFFFFFF) : -INT32_C(0x7FFFFFFF);
 
@@ -77,26 +70,10 @@ static inline int32_t osc_pwm_q31(Voice* voice, int32_t duty) {
     return q31_clamp(acc);
 }
 
-
-// Triangle via leaky integration of BLEP square
-// leak ~ 1e-4 (Q1.31 ≈ 214748) prevents DC drift
-static inline int32_t osc_triangle_q31(Voice *voice, int32_t leak_q31) {
-    // Use PWM with duty=0.5
-    int32_t s = osc_pwm_q31(voice, INT32_C(0x40000000));
-
-    // leaky integrator: z = z + s - leak*z
-    int32_t leak_term = q31_mul(leak_q31, voice->tri_z);
-    int64_t z = (int64_t)voice->tri_z + (int64_t)s - (int64_t)leak_term;
-    voice->tri_z = q31_clamp(z);
-
-    // rough scaling to keep triangle amplitude near +/-1
-    return voice->tri_z;
-}
-
 int32_t polyblep_synth_next_sample(Voice *voice) {
     voice->phase += voice->voice_param.phase_add;
 
-    int32_t out = osc_pwm_q31(voice, voice->voice_param.phase_add);
+    int32_t out = osc_pwm_q31(voice);
 
     uint16_t new_volume = voice->voice_param.volume;
     if (voice->ramp.target != new_volume) {
@@ -114,9 +91,9 @@ int32_t polyblep_synth_next_sample(Voice *voice) {
 
     int64_t tmp = ((int64_t)out * (int64_t)voice->ramp.current);
     int32_t tmp32 = tmp >> 16;  // compensate for remainder (8 bits) and table weight (8 bits)
-    /*if (voice->voice_param.highpass) {
+    if (voice->voice_param.highpass) {
         tmp32 = highpass(&voice->hp_state, tmp32, HP_200HZ);
-    }*/
+    }
     // if voice->voice_param.lowpass) {
     // int32_t f_q31 = (int32_t)roundf( (2.0f * sinf((float)M_PI * Fc / Fs)) * 2147483648.0f );
     // int32_t q_q31 = (int32_t)roundf(q_damp * 2147483648.0f);
