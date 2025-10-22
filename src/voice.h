@@ -23,7 +23,6 @@ typedef struct {
     uint32_t phase_inc;  // maps desired update rate to 32-bit increment
 } Noise;
 
-
 // Highpass stuff
 typedef struct {
     int32_t x1;   // previous input
@@ -45,9 +44,10 @@ typedef struct {
 typedef struct {
     VoiceParam voice_param;    
     Ramp ramp;
-    HPState hp_state;
+    HPState hp_state;    
     Noise noise;
     SVF svf;
+    HPState dcblock;
     uint32_t phase;
 } Voice;
 

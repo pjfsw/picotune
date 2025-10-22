@@ -17,6 +17,7 @@
 #define BUFFER_BLOCK_SIZE_BITS 4
 #define BUFFER_BLOCK_SIZE (1<<BUFFER_BLOCK_SIZE_BITS)
 
+#define LED_PIN 25
 
 static int dma_channel;
 static uint16_t buffer[2][BUF_LEN];
@@ -65,12 +66,21 @@ static void fill_buffer(uint16_t *buffer, uint16_t buffer_size) {
                 }
             }
         }
+        bool clipping = false;
         for (int sample = 0; sample < BUFFER_BLOCK_SIZE; sample++) {
             // TODO: Add dithering and all the sick stuff here
-            int64_t amp = block_buffer[sample] >> /*20*/ 22;  // 32 lovely bits down to 12
+            int64_t amp = block_buffer[sample] >> (20+VOICE_DOWN_MIX_BITS);  // 32 lovely bits down to 12
+            if (amp < -2047) {
+                amp = -2047;
+                clipping = true;
+            } else if (amp > 2047) {
+                amp = 2047;
+                clipping = true;
+            }
             buffer[buffer_offset] = mcp4822_frame(amp + 2048);
             buffer_offset++;
         }
+         gpio_put(LED_PIN, clipping);
     }
 }
 
@@ -142,6 +152,9 @@ static void setup_audio_stream() {
 
 
 void dsp_run() {    
+    gpio_init(LED_PIN);
+    gpio_set_dir(LED_PIN, GPIO_OUT);
+
     for (int i = 0; i < NUMBER_OF_VOICES; i++) {
         copy_voice_control(i);
     }

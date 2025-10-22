@@ -161,12 +161,17 @@ void control_run() {
         freqtable[i] = (uint32_t)(f * 8.0);
     }
 
-    uint16_t volmap[VOLUME_STEPS];
-    for (int i = 0; i < VOLUME_STEPS; i++) {
-        float dbfs = -(VOLUME_STEPS-i-1)*1;
-        float level = 65535.0 * powf(10, dbfs/20.0);
-        volmap[i] = (uint16_t)level;
-        printf("db: %f lvl %f\n", dbfs, level);
+    uint16_t volmap[4][VOLUME_STEPS];
+    float peak_level[4] = {-4,-6,-3,-4};
+    //float peak_level_db = -4;    
+    //float peak_level_db_pwm = -5;
+    for (int wav = 0; wav < 4; wav++) {
+        for (int i = 0; i < VOLUME_STEPS; i++) {
+            float dbfs = peak_level[wav]-(VOLUME_STEPS-1-i);
+            float level = 65535.0 * powf(10, dbfs/20.0);
+            volmap[wav][i] = (uint16_t)level;
+            //printf("db: %f lvl %f\n", dbfs, level);
+        }
     }
 
     int oct = 4;
@@ -217,7 +222,7 @@ void control_run() {
                     pwm[next_voice] = 16384;
                     dsp_param[next_voice].phase_diff = pwm[next_voice]>>8;
                     dsp_param[next_voice].phase_add = (uint32_t)((((uint64_t)freq) << 29) / SAMPLE_RATE);
-                    dsp_param[next_voice].volume = 63;
+                    dsp_param[next_voice].volume = volmap[waveform][63];
                     dsp_param[next_voice].waveform = waveform;
                     get_wavetable_for_frequency(freq>>3, &dsp_param[next_voice]);         
                     if (waveform == WAV_NOISE) {
@@ -233,7 +238,7 @@ void control_run() {
             if (vel[i] > 0) {
                 vel[i]--;
                 pwm[i]+=16;
-                dsp_param[i].volume = volmap[vel[i]>>5]; 
+                dsp_param[i].volume = volmap[dsp_param[i].waveform][vel[i]>>5]; 
                 dsp_param[i].phase_diff = pwm[i]>>8;
             } else {
                 dsp_param[i].volume = 0;

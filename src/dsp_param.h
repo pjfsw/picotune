@@ -4,6 +4,7 @@
 #include "pico/stdlib.h"
 
 #define NUMBER_OF_VOICES 4
+#define VOICE_DOWN_MIX_BITS 0
 
 typedef enum {
     WAV_SAW = 0,
