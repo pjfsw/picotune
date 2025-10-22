@@ -56,6 +56,7 @@ typedef struct {
     Noise noise;
     SVF svf;
     uint32_t phase;
+    int32_t tri_z;
 } Voice;
 
 #endif 
