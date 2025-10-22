@@ -117,25 +117,6 @@ static inline int32_t noise23_next(Noise *n){
     return v;
 }
 
-#define A_Q31 ((int32_t)0x7FE8AA41)  // 44.1 kHz, ~5 Hz HPF
-static inline int32_t dc_block(int32_t amp, HPState *dc) {
-    int32_t new_amp = amp - dc->x1 + q31_mul(A_Q31, dc->y1);
-    dc->x1 = amp;
-    dc->y1 = new_amp;
-    return new_amp;   
-}
-
-static inline int32_t dc_block2(int32_t x, HPState* s){
-    int64_t acc = (int64_t)x - (int64_t)s->x1 + (int64_t)q31_mul(A_Q31, s->y1);
-    s->x1 = x;
-    // clamp to int32
-    if (acc > INT32_MAX) acc = INT32_MAX;
-    if (acc < INT32_MIN) acc = INT32_MIN;
-    s->y1 = (int32_t)acc;
-    return s->y1;
-}
-
-
 int32_t synth_next_sample(Voice *voice) {
     voice->phase += voice->voice_param.phase_add;
     int64_t osc1 = voice->voice_param.use_noise ? noise23_next(&voice->noise) : get_oscillator(&voice->voice_param, voice->phase);
@@ -143,7 +124,6 @@ int32_t synth_next_sample(Voice *voice) {
     if (voice->voice_param.use_phase_diff) {
         int64_t osc2 = get_oscillator(&voice->voice_param, voice->phase + voice->voice_param.phase_diff);
         out = (osc2-osc1);
-        dc_block2(out, &voice->dcblock);
     }
     out = out >> 1;
 
@@ -164,8 +144,7 @@ int32_t synth_next_sample(Voice *voice) {
     int64_t tmp = ((int64_t)out * (int64_t)voice->ramp.current);
     int32_t tmp32 = tmp >> 16; // compensate for remainder (8 bits) and table weight (8 bits)    
     if (voice->voice_param.highpass) {
-        //tmp32 = highpass(&voice->hp_state, tmp32, HP_200HZ);
-        tmp32 = dc_block2(tmp32, &voice->dcblock);
+        tmp32 = highpass(&voice->hp_state, tmp32, HP_200HZ);
     }
     // if voice->voice_param.lowpass) {
         // int32_t f_q31 = (int32_t)roundf( (2.0f * sinf((float)M_PI * Fc / Fs)) * 2147483648.0f );

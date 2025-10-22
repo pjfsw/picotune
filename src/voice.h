@@ -47,7 +47,6 @@ typedef struct {
     HPState hp_state;    
     Noise noise;
     SVF svf;
-    HPState dcblock;
     uint32_t phase;
 } Voice;
 
