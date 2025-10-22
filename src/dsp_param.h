@@ -18,11 +18,15 @@ typedef struct {
     uint32_t phase_add;
     uint32_t control_id;
     uint16_t volume;
+    Waveform waveform;
+    uint32_t noise_phase_inc;
+    // Polyblep
+    int32_t  dt_q31;         // ≈ phase_inc converted to Q1.31
+    int32_t  inv_dt_q31;     // ≈ 1/dt in Q1.31 (reciprocal)    
+    // other
     uint8_t table_weight;
     uint8_t phase_diff;
-    Waveform waveform;
     bool highpass;
-    uint32_t noise_phase_inc;
 } DspParam;
 
 #endif

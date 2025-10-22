@@ -4,6 +4,12 @@
 #include "pico/stdlib.h"
 
 typedef struct {
+    // Polyblep
+    int32_t  dt_q31;         // ≈ phase_inc converted to Q1.31
+    int32_t  inv_dt_q31;     // ≈ 1/dt in Q1.31 (reciprocal)    
+} PolyBlep;
+
+typedef struct {
     const uint32_t *wavetable;
     const uint32_t *wavetable2;
     uint16_t volume;
@@ -14,6 +20,7 @@ typedef struct {
     bool highpass;
     bool use_phase_diff;
     bool use_noise;    
+    PolyBlep poly_blep;
 } VoiceParam;
 
 // 23-bit LFSR + variable-rate clock, integer-only

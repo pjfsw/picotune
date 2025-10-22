@@ -46,7 +46,9 @@ static void copy_voice_control(int voice) {
     voices[voice].voice_param.use_phase_diff = dsp_param[voice].waveform == WAV_SQUARE;
     voices[voice].voice_param.use_noise = dsp_param[voice].waveform == WAV_NOISE;
     voices[voice].noise.phase_inc = dsp_param[voice].noise_phase_inc;
-    voices[voice].voice_param.control_id = dsp_param[voice].control_id;
+    voices[voice].poly_blep.dt_q31 = dsp_param[voice].dt_q31;
+    voices[voice].poly_blep.inv_dt_q31 = dsp_param[voice].inv_dt_q31;
+    voices[voice].voice_param.control_id = dsp_param[voice].control_id;    
 }
 
 static void fill_buffer(uint16_t *buffer, uint16_t buffer_size) {
@@ -57,7 +59,7 @@ static void fill_buffer(uint16_t *buffer, uint16_t buffer_size) {
                 copy_voice_control(v);
             }
             for (int sample = 0; sample < BUFFER_BLOCK_SIZE; sample++) {
-                int64_t amp = (int64_t)synth_next_sample(&voices[v]);                
+                int64_t amp = (int64_t)polyblep_synth_next_sample(&voices[v]);                
                 if (v > 0) {   
                     block_buffer[sample] += amp;
                 } else {
