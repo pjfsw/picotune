@@ -12,10 +12,7 @@
 #define PIN_MOSI 19
 
 #define FREQ 440.0f
-#define BUF_LEN 256
-
-#define BUFFER_BLOCK_SIZE_BITS 4
-#define BUFFER_BLOCK_SIZE (1<<BUFFER_BLOCK_SIZE_BITS)
+#define BUF_LEN 32
 
 #define LED_PIN 25
 
@@ -26,7 +23,7 @@ static volatile bool data_requested = false;
 
 volatile DspParam dsp_param[NUMBER_OF_VOICES];
 static Voice voices[NUMBER_OF_VOICES];
-static int64_t block_buffer[BUFFER_BLOCK_SIZE];
+static int64_t block_buffer[BUF_LEN];
 
 
 // Build a 16-bit MCP4822 frame for channel A, gain 1×, active
@@ -52,36 +49,34 @@ static void copy_voice_control(int voice) {
 
 static void fill_buffer(uint16_t *buffer, uint16_t buffer_size) {
     uint16_t buffer_offset = 0;
-    for (uint16_t sample_block = 0; sample_block < (buffer_size >> BUFFER_BLOCK_SIZE_BITS); sample_block++) { 
-        for (int v = 0; v < NUMBER_OF_VOICES; v++) {
-            if (dsp_param[v].control_id != voices[v].voice_param.control_id) {
-                copy_voice_control(v);
-            }
-            for (int sample = 0; sample < BUFFER_BLOCK_SIZE; sample++) {
-                int64_t amp = (int64_t)synth_next_sample(&voices[v]);                
-                if (v > 0) {   
-                    block_buffer[sample] += amp;
-                } else {
-                    block_buffer[sample] = amp;
-                }
+    for (int v = 0; v < NUMBER_OF_VOICES; v++) {
+        if (dsp_param[v].control_id != voices[v].voice_param.control_id) {
+            copy_voice_control(v);
+        }
+        for (int sample = 0; sample < buffer_size; sample++) {
+            int64_t amp = (int64_t)synth_next_sample(&voices[v]);
+            if (v > 0) {
+                block_buffer[sample] += amp;
+            } else {
+                block_buffer[sample] = amp;
             }
         }
-        bool clipping = false;
-        for (int sample = 0; sample < BUFFER_BLOCK_SIZE; sample++) {
-            // TODO: Add dithering and all the sick stuff here
-            int64_t amp = block_buffer[sample] >> (20+VOICE_DOWN_MIX_BITS);  // 32 lovely bits down to 12
-            if (amp < -2047) {
-                amp = -2047;
-                clipping = true;
-            } else if (amp > 2047) {
-                amp = 2047;
-                clipping = true;
-            }
-            buffer[buffer_offset] = mcp4822_frame(amp + 2048);
-            buffer_offset++;
-        }
-         gpio_put(LED_PIN, clipping);
     }
+    bool clipping = false;
+    for (int sample = 0; sample < buffer_size; sample++) {
+        // TODO: Add dithering and all the sick stuff here
+        int64_t amp = block_buffer[sample] >> (20 + VOICE_DOWN_MIX_BITS);  // 32 lovely bits down to 12
+        if (amp < -2047) {
+            amp = -2047;
+            clipping = true;
+        } else if (amp > 2047) {
+            amp = 2047;
+            clipping = true;
+        }
+        buffer[buffer_offset] = mcp4822_frame(amp + 2048);
+        buffer_offset++;
+    }
+    gpio_put(LED_PIN, clipping);
 }
 
 static void __isr dma_handler() {
