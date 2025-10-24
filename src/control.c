@@ -193,7 +193,7 @@ static void init_song(Song *song) {
     instr[0].pwm = 2;
     instr[1].vol = 62;
     instr[1].pwm = 3;
-    instr[2].vol = 59;
+    instr[2].vol = 54;
     instr[2].pwm = 4;
 }
 
