@@ -4,6 +4,10 @@
   "files.associations": {
     "stdlib.h": "c",
     "mcp4822.pio.h": "c",
-    "chrono": "c"
+    "chrono": "c",
+    "wavetable.h": "c",
+    "synth.h": "c",
+    "samplerate.h": "c",
+    "dsp_param.h": "c"
   }
 }

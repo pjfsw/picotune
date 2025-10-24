@@ -11,20 +11,18 @@ static inline float freq_to_midi(float freq_hz) {
 
 static uint8_t table_weight[16]= {17,34,51,68,85,102,119,136,153,170,187,204,221,238,255,255};
 
-void get_wavetable_for_frequency(float f, volatile DspParam *dsp_param) {
+void get_wavetable_for_frequency(float f, DspChannel *dsp_channel) {
     int midi_note = (int)lroundf(freq_to_midi(f));
     int t = 1;
     if ((midi_note > 1) && (midi_note < WAVETABLE_COUNT * WAVETABLE_NOTES_PER_TABLE)) { 
         t = midi_note >> WAVETABLE_NOTES_PER_TABLE_SHIFT;
     }
-    printf("Freq %f, midi note %d, table #%d\n", f, midi_note, t);
-    if (dsp_param->waveform == WAV_TRIANGLE) {
-        dsp_param->wavetable = wavetables_triangle[t];
-        dsp_param->wavetable2 = wavetables_triangle[t+1];  
+    if (dsp_channel->waveform == WAV_TRIANGLE) {
+        dsp_channel->wavetable = wavetables_triangle[t];
+        dsp_channel->wavetable2 = wavetables_triangle[t+1];  
     } else {
-        dsp_param->wavetable = wavetables_saw[t];
-        dsp_param->wavetable2 = wavetables_saw[t+1];  
+        dsp_channel->wavetable = wavetables_saw[t];
+        dsp_channel->wavetable2 = wavetables_saw[t+1];  
     }
-    dsp_param->table_weight = table_weight[midi_note & 15];
-    printf("Table weight %d\n", dsp_param->table_weight);
+    dsp_channel->table_weight = table_weight[midi_note & 15];
 }

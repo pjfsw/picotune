@@ -8,11 +8,10 @@ typedef struct {
     const uint32_t *wavetable2;
     uint16_t volume;
     uint32_t phase_add;
-    uint32_t control_id;
-    uint32_t phase_diff;
+    uint32_t pwm;
     uint8_t table_weight;
     bool highpass;
-    bool use_phase_diff;
+    bool use_pwm;
     bool use_noise;    
 } VoiceParam;
 

@@ -7,6 +7,6 @@
 
 void wavetable_init();
 
-void get_wavetable_for_frequency(float f, volatile DspParam *dsp_param);
+void get_wavetable_for_frequency(float f, DspChannel *dsp_channel);
 
 #endif

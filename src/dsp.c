@@ -12,16 +12,19 @@
 #define PIN_MOSI 19
 
 #define FREQ 440.0f
-#define BUF_LEN 32
+#define BUF_LEN 16
 
 #define LED_PIN 25
+#define DEBUG_PIN 22
 
 static int dma_channel;
 static uint16_t buffer[2][BUF_LEN];
 static volatile uint8_t next_buffer = 1;
 static volatile bool data_requested = false;
 
-volatile DspParam dsp_param[NUMBER_OF_VOICES];
+static uint32_t dsp_control_id;
+
+DspParam dsp_param;
 static Voice voices[NUMBER_OF_VOICES];
 static int64_t block_buffer[BUF_LEN];
 
@@ -32,27 +35,32 @@ static inline uint16_t mcp4822_frame(uint16_t v12) {
     return (0 << 15) | (1 << 14) | (1 << 13) | (1 << 12) | v12;
 }
 
-
-static void copy_voice_control(int voice) {
-    voices[voice].voice_param.phase_add = dsp_param[voice].phase_add;
-    voices[voice].voice_param.table_weight = dsp_param[voice].table_weight;
-    voices[voice].voice_param.volume = dsp_param[voice].volume;
-    voices[voice].voice_param.wavetable = dsp_param[voice].wavetable;
-    voices[voice].voice_param.wavetable2 = dsp_param[voice].wavetable2;
-    voices[voice].voice_param.phase_diff = dsp_param[voice].phase_diff << 24;
-    voices[voice].voice_param.highpass = dsp_param[voice].highpass;
-    voices[voice].voice_param.use_phase_diff = dsp_param[voice].waveform == WAV_SQUARE;
-    voices[voice].voice_param.use_noise = dsp_param[voice].waveform == WAV_NOISE;
-    voices[voice].noise.phase_inc = dsp_param[voice].noise_phase_inc;
-    voices[voice].voice_param.control_id = dsp_param[voice].control_id;
+static void copy_voice_control() {
+    for (int voice = 0; voice < NUMBER_OF_VOICES; voice++) {
+        voices[voice].voice_param.phase_add = dsp_param.channel[voice].phase_add;
+        voices[voice].voice_param.table_weight = dsp_param.channel[voice].table_weight;
+        voices[voice].voice_param.volume = dsp_param.channel[voice].volume;
+        voices[voice].voice_param.wavetable = dsp_param.channel[voice].wavetable;
+        voices[voice].voice_param.wavetable2 = dsp_param.channel[voice].wavetable2;
+        voices[voice].voice_param.pwm = dsp_param.channel[voice].pwm << 24;
+        voices[voice].voice_param.highpass = dsp_param.channel[voice].highpass;
+        voices[voice].voice_param.use_pwm = dsp_param.channel[voice].waveform == WAV_SQUARE;
+        voices[voice].voice_param.use_noise = dsp_param.channel[voice].waveform == WAV_NOISE;
+        voices[voice].noise.phase_inc = dsp_param.channel[voice].noise_phase_inc;
+    }
 }
+    
+bool herp;
 
 static void fill_buffer(uint16_t *buffer, uint16_t buffer_size) {
-    uint16_t buffer_offset = 0;
+
+    uint16_t buffer_offset = 0;    
+    uint32_t current_id = atomic_load_explicit(&dsp_param.control_id, memory_order_acquire);
+    if (dsp_control_id != current_id)  {
+        copy_voice_control();
+        dsp_control_id = current_id;
+    }
     for (int v = 0; v < NUMBER_OF_VOICES; v++) {
-        if (dsp_param[v].control_id != voices[v].voice_param.control_id) {
-            copy_voice_control(v);
-        }
         for (int sample = 0; sample < buffer_size; sample++) {
             int64_t amp = (int64_t)synth_next_sample(&voices[v]);
             if (v > 0) {
@@ -62,21 +70,21 @@ static void fill_buffer(uint16_t *buffer, uint16_t buffer_size) {
             }
         }
     }
-    bool clipping = false;
+    //bool clipping = false;
     for (int sample = 0; sample < buffer_size; sample++) {
         // TODO: Add dithering and all the sick stuff here
         int64_t amp = block_buffer[sample] >> (20 + VOICE_DOWN_MIX_BITS);  // 32 lovely bits down to 12
         if (amp < -2047) {
             amp = -2047;
-            clipping = true;
+            //clipping = true;
         } else if (amp > 2047) {
             amp = 2047;
-            clipping = true;
+            //clipping = true;
         }
         buffer[buffer_offset] = mcp4822_frame(amp + 2048);
         buffer_offset++;
     }
-    gpio_put(LED_PIN, clipping);
+    //gpio_put(LED_PIN, clipping);
 }
 
 static void __isr dma_handler() {
@@ -149,6 +157,9 @@ static void setup_audio_stream() {
 void dsp_run() {    
     gpio_init(LED_PIN);
     gpio_set_dir(LED_PIN, GPIO_OUT);
+    gpio_init(DEBUG_PIN);
+    gpio_set_dir(DEBUG_PIN, GPIO_OUT);
+
 
     for (int i = 0; i < NUMBER_OF_VOICES; i++) {
         copy_voice_control(i);

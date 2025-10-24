@@ -2,38 +2,32 @@
 #include "control.h"
 #include "pico/stdlib.h"
 #include <stdio.h>
+#include <string.h>
 #include "samplerate.h"
 #include "dsp_param.h"
 #include "wavetable.h"
+#include "dsp_control.h"
+#include "hardware/irq.h"
+#include "hardware/pwm.h"
 
+typedef struct {
+    int8_t notes[NUMBER_OF_VOICES][32];
+} Song;
 
-/*
-#define TABLE_SIZE 256
-static uint8_t sine_table[TABLE_SIZE];
-static void init_sine_table(void) {
-    for (int i = 0; i < TABLE_SIZE; i++) {
-        float x = (float)i / TABLE_SIZE;
-        float s = sinf(2.0f * M_PI * x);        // -1.0 → +1.0
-        sine_table[i] = (uint8_t)(128 + s * (63 - 1));
-    }
-}
-*/
+typedef struct {
+    uint16_t freq8table[128];
+    Song song;
+} Control;
 
-//f=440⋅2(n−69)/12
-
-extern volatile DspParam dsp_param[];
+static Control control;
+static DspControl *dspc; 
 
 void control_init() {
-    for (int i = 0; i < NUMBER_OF_VOICES; i++) {
-        get_wavetable_for_frequency(440, &dsp_param[i]);
-        dsp_param[i].phase_add = 0;
-        dsp_param[i].volume = 0;
-        dsp_param[i].control_id = 0;
-    }
+    dspc = dspc_singleton();
+    dspc_init(dspc);
 }
 
-#define VOLUME_STEPS 64
-
+/*
 int get_note_from_key(int ch) {
     int n = -1;
     switch (ch) {
@@ -132,47 +126,121 @@ int get_note_from_key(int ch) {
     }
     return n;
 }
-
-// Integer: phase_inc = round(f_update / fs * 2^32)
-static inline uint32_t phase_inc_from_rate(uint32_t f_update) {
-    if (f_update >= SAMPLE_RATE) {
-        return 0xFFFFFFFFu; // extremely fast; will wrap a lot
-    }
-    uint64_t num = ((uint64_t)f_update << 32); // f_update * 2^32
-    // + fs/2 for rounding
-    return (uint32_t)((num + ((uint32_t)SAMPLE_RATE>>1)) / (uint32_t)SAMPLE_RATE);
-}
-
-uint32_t get_noise_phase_inc(uint32_t f_update) {
-        // Clamp to Nyquist to avoid useless alias brightness
-    if (f_update > (uint32_t)SAMPLE_RATE/2) {
-        f_update = (uint32_t)SAMPLE_RATE/2;
-    }
-    if (f_update < 1) {
-        f_update = 1;
-    }
-    return phase_inc_from_rate(f_update);
-}
-
-void control_run() {
-    uint32_t freqtable[128];
+*/
+static void init_freq8_table(Control *control) {
     for (int i = 0; i < 128; i++) {
         float f = 440.0 * powf(2.0f, (i-69)/12.0f);
-        freqtable[i] = (uint32_t)(f * 8.0);
+        control->freq8table[i] = (uint16_t)lroundf(f * 8.0);
+    }
+}
+
+#define LED_PIN 25
+#define DEBUG_PIN 22
+
+uint8_t step = 0;
+uint8_t songpos = 0;
+int8_t vol[NUMBER_OF_VOICES]; 
+uint8_t pwm[NUMBER_OF_VOICES];
+
+typedef struct {
+    int8_t vol;
+    uint8_t pwm;
+} Instr;
+
+Instr instr[NUMBER_OF_VOICES];
+
+static inline void sequencer_callback() {
+    dspc_latch();
+
+    for (int i = 0; i < NUMBER_OF_VOICES; i++) {
+        dspc_set_control(dspc, i, 0x40 | vol[i]);
+        dspc_set_pwm(dspc, i, pwm[i]);
+        if (vol[i] > 0) {
+            vol[i]--;
+        } else {
+            vol[i] = 0;
+        }
+        pwm[i]+=instr[i].pwm;
     }
 
-    uint16_t volmap[4][VOLUME_STEPS];
-    float peak_level[4] = {-4,-6,-3,-4};
-    //float peak_level_db = -4;    
-    //float peak_level_db_pwm = -5;
-    for (int wav = 0; wav < 4; wav++) {
-        for (int i = 0; i < VOLUME_STEPS; i++) {
-            float dbfs = peak_level[wav]-(VOLUME_STEPS-1-i);
-            float level = 65535.0 * powf(10, dbfs/20.0);
-            volmap[wav][i] = (uint16_t)level;
-            //printf("db: %f lvl %f\n", dbfs, level);
+    if (step == 6) {
+        uint8_t track_pos = songpos & 0x1f;
+        Song *song = &control.song;
+        for (int i = 0; i < NUMBER_OF_VOICES; i++) {
+            if (song->notes[i][track_pos] > 0) {
+                uint16_t freq8 = control.freq8table[song->notes[i][track_pos]];
+                dspc_set_frequency(dspc, i, freq8);
+                pwm[i] = 63;
+                vol[i] = instr[i].vol;
+            } 
         }
+        songpos++;
+        step = 0;
+    } else {
+        step++;
     }
+}
+
+static void init_song(Song *song) {
+    memset(song, 0, sizeof(Song));
+    int8_t bass_notes[32] = {38,0,38,0,50,0,38,0,38,50,0,38,50,0,38,0, 34,0,34,0,46,0,34,0,34,46,0,34,46,0,48,0};
+    memcpy(&song->notes[0], bass_notes, 32);
+    int8_t mid_notes[32] = {62,0,0,65,0,0,67,0,   62,0,0,60,0,0,62,0, 62,0,0,65,0,0,67,0,   62,0,0,60,0,0,62,0};
+    memcpy(&song->notes[1], mid_notes, 32);
+    int8_t mid2_notes[32] = {74,0,74,0,74,0,74,0,74,0,74,0,74,0,74,0, 76,0,76,0,76,0,76,0,77,0,77,0,77,0,77,0};
+    memcpy(&song->notes[2], mid2_notes, 32);
+    instr[0].vol = 63;
+    instr[0].pwm = 2;
+    instr[1].vol = 62;
+    instr[1].pwm = 3;
+    instr[2].vol = 59;
+    instr[2].pwm = 4;
+}
+
+static inline void pulse() {
+    gpio_xor_mask(1u << DEBUG_PIN);
+    sequencer_callback();
+}
+
+void __isr pwm_wrap_isr() {
+    pwm_clear_irq(0);
+
+    pulse();
+}
+
+void start_60hz_pwm_irq(){
+    uint slice = 0;
+    pwm_config c = pwm_get_default_config();
+    pwm_config_set_clkdiv(&c, 256.0f);
+    pwm_init(slice, &c, false);
+    pwm_set_wrap(slice, (125000000/(256*60))-1);
+    pwm_clear_irq(slice);
+    pwm_set_irq_enabled(slice, true);
+    irq_set_exclusive_handler(PWM_IRQ_WRAP, pwm_wrap_isr);
+    irq_set_enabled(PWM_IRQ_WRAP, true);
+    pwm_set_enabled(slice, true);
+}
+
+
+void control_run() {
+    init_freq8_table(&control);
+    init_song(&control.song);
+
+    irq_set_priority(DMA_IRQ_0,    0);
+    irq_set_priority(TIMER_IRQ_0,  1);   // repeating_timer uses hardware alarm on TIMER_IRQ_0
+    irq_set_priority(USBCTRL_IRQ,  3);    
+
+    start_60hz_pwm_irq();
+    //static repeating_timer_t timer;
+    //add_repeating_timer_us(-16667, sequencer_callback, NULL, &timer);
+    while (true) {
+        tight_loop_contents();  // small wait hint
+    }
+
+}    
+
+/*void old_control_run() {
+    uint32_t freq8table[128];
 
     int oct = 4;
     uint16_t vel[NUMBER_OF_VOICES];
@@ -185,67 +253,7 @@ void control_run() {
     int next_voice = 0;
     int waveform = WAV_SAW;
     while (true) {
-        int ch = getchar_timeout_us(0);
-        if (ch > 0) {
-            printf("keypress\n");
-            int n = get_note_from_key(ch);
-            switch (ch) {
-                case '+':
-                    if (oct < 9) {
-                        oct++;
-                    }
-                    break;
-                case '-':
-                    if (oct > 1) {
-                        oct--;
-                    }
-                    break;
-                case ' ':
-                    for (int i = 0 ; i < NUMBER_OF_VOICES; i++) {                        
-                        dsp_param[i].highpass = !dsp_param[i].highpass;
-                        bool on = dsp_param[i].highpass;
-                        dsp_param[i].control_id++;
-                        printf("Highpass: %s\n", on ? "on" : "off");
-                    }
-                    break;
-                case '<':
-                    waveform = (waveform + 1) & 3;
-                    printf("Waveform %d\n", waveform); 
-                    break;                    
-            }
-
-            if (n >= 0) {
-                n = n+12*oct;
-                if (n < 128) {
-                    uint32_t freq = freqtable[n];
-                    vel[next_voice] = 2047;                
-                    pwm[next_voice] = 16384;
-                    dsp_param[next_voice].phase_diff = pwm[next_voice]>>8;
-                    dsp_param[next_voice].phase_add = (uint32_t)((((uint64_t)freq) << 29) / SAMPLE_RATE);
-                    dsp_param[next_voice].volume = volmap[waveform][63];
-                    dsp_param[next_voice].waveform = waveform;
-                    get_wavetable_for_frequency(freq>>3, &dsp_param[next_voice]);         
-                    if (waveform == WAV_NOISE) {
-                        dsp_param[next_voice].noise_phase_inc = get_noise_phase_inc(freq>>1);
-                    }
-                    dsp_param[next_voice].control_id++;                
-                    next_voice = (next_voice + 1) % NUMBER_OF_VOICES;
-                }
-            }
-        }
-        sleep_ms(1);
-        for (int i = 0 ; i < NUMBER_OF_VOICES; i++) {
-            if (vel[i] > 0) {
-                vel[i]--;
-                pwm[i]+=16;
-                dsp_param[i].volume = volmap[dsp_param[i].waveform][vel[i]>>5]; 
-                dsp_param[i].phase_diff = pwm[i]>>8;
-            } else {
-                dsp_param[i].volume = 0;
-            }
-            dsp_param[i].control_id++;
-        }
 
         tight_loop_contents();  // small wait hint
     }
-}
+}*/

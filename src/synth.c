@@ -121,8 +121,8 @@ int32_t synth_next_sample(Voice *voice) {
     voice->phase += voice->voice_param.phase_add;
     int64_t osc1 = voice->voice_param.use_noise ? noise23_next(&voice->noise) : get_oscillator(&voice->voice_param, voice->phase);
     int64_t out = osc1;
-    if (voice->voice_param.use_phase_diff) {
-        int64_t osc2 = get_oscillator(&voice->voice_param, voice->phase + voice->voice_param.phase_diff);
+    if (voice->voice_param.use_pwm) {
+        int64_t osc2 = get_oscillator(&voice->voice_param, voice->phase + voice->voice_param.pwm);
         out = (osc2-osc1);
     }
     out = out >> 1;
