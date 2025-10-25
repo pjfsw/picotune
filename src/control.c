@@ -50,7 +50,7 @@ typedef struct {
 
 Instr instr[NUMBER_OF_VOICES];
 
-uint16_t adsr[NUMBER_OF_VOICES] = {0x03cd, 0x395d, 0x0475,0x02b6};
+uint16_t adsr[NUMBER_OF_VOICES] = {0x03bd, 0x399e, 0x0475,0x02b6};
 
 static inline void sequencer_callback() {
     dspc_latch();
@@ -97,7 +97,7 @@ static void init_song(Song *song) {
     int8_t bass_notes[32] = {38,0,0,-1,0,0,38,0,38,50,0,38,50,0,38,0, 34,0,-1,0,46,0,34,0,34,46,0,34,46,0,48,0};
     int8_t mid_notes[32] = {62,0,0,0,0,0,-1,0, 64,0,0,0,0,0,-1,0,65,0,0,0,0,0,67,0,64,0,0,-1,60,0,0,-1};
     int8_t mid2_notes[32] = {57,-1,62,-1,74,-1,74,-1,57,-1,62,-1,74,-1,74,-1,57,-1,62,-1,74,-1,74,-1,57,-1,62,-1,76,77,72,74};
-    int8_t rythm_notes[32] = {0,0,0,0,90,-1,0,0,0,0,0,0,90,-1,0,0,0,0,0,0,90,-1,0,0,0,0,0,0,90,-1,90,-1};
+    int8_t rythm_notes[32] = {0,0,0,0,100,-1,0,0,0,0,0,0,100,-1,0,0,0,0,0,0,100,-1,0,0,0,0,0,0,100,-1,100,-1};
     memcpy(&song->notes[0], bass_notes, 32);
     memcpy(&song->notes[1], mid_notes, 32);
     memcpy(&song->notes[2], mid2_notes, 32);
