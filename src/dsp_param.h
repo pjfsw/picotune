@@ -12,6 +12,7 @@
 #define ENVELOPE_BITS 10       // Number of entries in the envelope dB-to-V table
 #define ENVELOPE_STEPS (1<<ENVELOPE_BITS)
 #define ENVELOPE_SHIFT (16-ENVELOPE_BITS)
+#define ENVELOPE_FRACTIONAL_BITS 8
 
 typedef enum {
     WAV_SAW = 0,
@@ -31,9 +32,9 @@ typedef struct {
     uint8_t pwm;
     Waveform waveform;
     uint16_t attack;
-    uint16_t decay;
+    uint32_t decay;
     uint16_t sustain;
-    uint16_t release;
+    uint32_t release;
     bool gate;
     bool highpass;
 } DspChannel;

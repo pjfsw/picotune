@@ -13,9 +13,9 @@ typedef struct {
     uint32_t phase_add;
     uint32_t pwm;
     uint16_t attack;
-    uint16_t decay;
+    uint32_t decay;
     uint16_t sustain;
-    uint16_t release;
+    uint32_t release;
     uint8_t table_weight;
     bool highpass;
     bool use_pwm;

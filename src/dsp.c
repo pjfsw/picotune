@@ -69,12 +69,12 @@ static inline bool is_gate_off(Voice *voice) {
 
 static inline void update_adsr(Voice *voice) {
     if (is_gate_on(voice)) {
-        voice->ramp.target = 0;
-        voice->ramp.remaining = 32768;// voice->voice_param.release;
-        voice->ramp.current = 65535;
+        voice->ramp.target = 0 << ENVELOPE_FRACTIONAL_BITS;
+        voice->ramp.remaining = voice->voice_param.release;
+        voice->ramp.current = 65535 << ENVELOPE_FRACTIONAL_BITS;
         voice->ramp.step = (voice->ramp.target - voice->ramp.current) / voice->ramp.remaining;
     }
-   voice->last_gate = voice->voice_param.gate;
+    voice->last_gate = voice->voice_param.gate;
 }
 
 static void fill_buffer(uint16_t *buffer, uint16_t buffer_size) {

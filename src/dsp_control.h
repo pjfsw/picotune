@@ -22,8 +22,8 @@ typedef struct {
 
 typedef struct {
     uint16_t attack_map[4];
-    uint16_t decay_map[16];
-    uint16_t release_map[16];
+    uint32_t decay_map[16];
+    uint32_t release_map[16];
 } Adsr;
 
 typedef struct {

@@ -32,12 +32,13 @@ static void init_volume_maps(DspControl *dspc) {
     }
 }
 
-static inline uint16_t ms_to_sample_buffers(float ms) {
-    return (uint16_t)roundf(ms * SAMPLE_RATE / 1000.0 / (float)BUF_LEN);
+static inline uint32_t ms_to_sample_buffers(float ms) {
+    uint32_t buffers = (uint32_t)roundf(ms * SAMPLE_RATE / 1000.0 / (float)BUF_LEN);
+    return buffers*BUF_LEN;
 }
 
 static inline void set_decay_release(DspControl *dspc, int index, float ms) {
-    uint16_t v = ms_to_sample_buffers(ms);
+    uint32_t v = ms_to_sample_buffers(ms);
     dspc->adsr.decay_map[index] = v;
     dspc->adsr.release_map[index] = v;
 }
@@ -62,7 +63,7 @@ static void init_envelope_maps(DspControl *dspc) {
     set_decay_release(dspc, 12, 500.0);
     set_decay_release(dspc, 13, 750.0);
     set_decay_release(dspc, 14, 1000.0);
-    set_decay_release(dspc, 15, 1200.0); // 1.2 seconds
+    set_decay_release(dspc, 15, 3000.0); // 2 seconds
 }
 
 
@@ -139,7 +140,7 @@ void dspc_set_control(DspControl *dspc, int voice, uint8_t control_value) {
 
 static void transform_voice_envelope(DspControl *dspc, int voice) {
     uint16_t envelope = dspc->registers.voices[voice].envelope;
-    current_dsp_channels[voice].release = 128; // dspc->adsr.release_map[(envelope >> 0) & 15];
+    current_dsp_channels[voice].release = dspc->adsr.release_map[(envelope >> 0) & 15];
     current_dsp_channels[voice].sustain = (envelope >> 4) & 15;
     current_dsp_channels[voice].decay = dspc->adsr.decay_map[(envelope >> 8) & 15];
     current_dsp_channels[voice].attack = dspc->adsr.attack_map[(envelope >> 12) & 3];
