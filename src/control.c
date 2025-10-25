@@ -27,106 +27,6 @@ void control_init() {
     dspc_init(dspc);
 }
 
-/*
-int get_note_from_key(int ch) {
-    int n = -1;
-    switch (ch) {
-        case 'z':
-            n = 0;
-            break;
-        case 's':
-            n = 1;
-            break;
-        case 'x':
-            n = 2;
-            break;
-        case 'd':
-            n = 3;
-            break;
-        case 'c':
-            n = 4;
-            break;
-        case 'v':
-            n = 5;
-            break;
-        case 'g':
-            n = 6;
-            break;
-        case 'b':
-            n = 7;
-            break;
-        case 'h':
-            n = 8;
-            break;
-        case 'n':
-            n = 9;
-            break;
-        case 'j':
-            n = 10;
-            break;
-        case 'm':
-            n = 11;
-            break;
-        case ',':
-        case 'q':
-            n = 12;
-            break;
-        case 'l':        
-        case '2':
-            n = 13;
-            break;
-        case '.':
-        case 'w':
-            n = 14;
-            break;
-        case '3':
-            n = 15;
-            break;
-        case 'e':
-            n = 16;
-            break;
-        case 'r':
-            n = 17;
-            break;
-        case '5':
-            n = 18;
-            break;
-        case 't':
-            n = 19;
-            break;
-        case '6':
-            n = 20;
-            break;
-        case 'y':
-            n = 21;
-            break;
-        case '7':
-            n = 22;
-            break;
-        case 'u':
-            n = 23;
-            break;
-        case 'i':
-            n = 24;
-            break;
-        case '9':
-            n = 25;
-            break;
-        case 'o':
-            n = 26;
-            break;
-        case '0':
-            n = 27;
-            break;
-        case 'p':
-            n = 28;
-            break;
-        default:
-            break;
-    }
-    return n;
-}
-*/
 static void init_freq8_table(Control *control) {
     for (int i = 0; i < 128; i++) {
         float f = 440.0 * powf(2.0f, (i-69)/12.0f);
@@ -149,7 +49,7 @@ typedef struct {
 
 Instr instr[NUMBER_OF_VOICES];
 
-uint16_t adsr[NUMBER_OF_VOICES] = {0x03ed, 0x34ca, 0x0000,0x0000};
+uint16_t adsr[NUMBER_OF_VOICES] = {0x039d, 0x395d, 0x0000,0x0000};
 
 static inline void sequencer_callback() {
     dspc_latch();
@@ -193,10 +93,9 @@ static inline void sequencer_callback() {
 
 static void init_song(Song *song) {
     memset(song, 0, sizeof(Song));
-    //int8_t bass_notes[32] = {38,0,38,0,50,0,38,0,38,50,0,38,50,0,38,0, 34,0,34,0,46,0,34,0,34,46,0,34,46,0,48,0};
-    int8_t bass_notes[32] = {38,0,0,-1,0,0,38,0,38,50,0,38,50,0,38,0, 34,0,-1,0,46,0,34,0,34,46,0,34,46,0,48,0};
-    int8_t mid_notes[32] = {62,0,0,0,-1,0,0,0, 64,0,0,0,-1,0,0,0,65,0,0,0,-1,0,0,0,67,0,0,-1,69,0,0,-1};
-    memcpy(&song->notes[0], bass_notes, 32);
+    //int8_t bass_notes[32] = {38,0,0,-1,0,0,38,0,38,50,0,38,50,0,38,0, 34,0,-1,0,46,0,34,0,34,46,0,34,46,0,48,0};
+    int8_t mid_notes[32] = {62,0,0,0,0,0,0,-1, 64,0,-1,0,0,0,0,-1,60,0,0,0,0,0,0,-1,67,0,0,-1,69,0,0,-1};
+    //memcpy(&song->notes[0], bass_notes, 32);
     memcpy(&song->notes[1], mid_notes, 32);
     /*int8_t mid_notes[32] = {62,0,0,65,0,0,67,0,   62,0,0,60,0,0,62,0, 62,0,0,65,0,0,67,0,   62,0,0,60,0,0,62,0};
     int8_t mid2_notes[32] = {74,0,74,0,74,0,74,0,74,0,74,0,74,0,74,0, 76,0,76,0,76,0,76,0,77,0,77,0,77,0,77,0};

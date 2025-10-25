@@ -140,8 +140,13 @@ int32_t synth_next_sample(Voice *voice) {
         voice->ramp.current = voice->ramp.target;
     }
 
-    int64_t env = (int64_t)(voice->env_table[voice->ramp.current >> (ENVELOPE_SHIFT+ENVELOPE_FRACTIONAL_BITS)]);
-    //int64_t env = 1023;
+    int64_t env;
+    if (voice->env_state == ENV_ATTACK) {
+        env = voice->ramp.current >> (ENVELOPE_SCALE_SHIFT + ENVELOPE_FRACTIONAL_BITS);
+    } else {
+        env = (int64_t)(voice->env_table[voice->ramp.current >> (ENVELOPE_SHIFT+ENVELOPE_FRACTIONAL_BITS)]);
+    }
+
     int64_t tmp = ((int64_t)out * env * (int64_t)(voice->voice_param.volume));
     int32_t tmp32 = tmp >> (16 + ENVELOPE_SCALE_BITS); // compensate 16-bit volume and x bit ADSR
     if (voice->voice_param.highpass) {

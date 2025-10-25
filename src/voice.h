@@ -4,6 +4,7 @@
 #include "pico/stdlib.h"
 
 #define ENVELOPE_SCALE_BITS 11 // Amplitude of the envelope dB-to-V table
+#define ENVELOPE_SCALE_SHIFT (16-ENVELOPE_SCALE_BITS)
 #define ENVELOPE_SCALE (1<<ENVELOPE_SCALE_BITS)
 
 typedef struct {

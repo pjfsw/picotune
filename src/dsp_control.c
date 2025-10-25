@@ -141,7 +141,7 @@ void dspc_set_control(DspControl *dspc, int voice, uint8_t control_value) {
 static void transform_voice_envelope(DspControl *dspc, int voice) {
     uint16_t envelope = dspc->registers.voices[voice].envelope;
     current_dsp_channels[voice].release = dspc->adsr.release_map[(envelope >> 0) & 15];
-    current_dsp_channels[voice].sustain = ((envelope >> 4) & 15) << 12;
+    current_dsp_channels[voice].sustain = (((envelope >> 4) & 15) << 11) + 34815;
     current_dsp_channels[voice].decay = dspc->adsr.decay_map[(envelope >> 8) & 15];
     current_dsp_channels[voice].attack = dspc->adsr.attack_map[(envelope >> 12) & 3];
     current_dsp_channels[voice].gate = (envelope >> ENV_GATE_BIT) & 1;

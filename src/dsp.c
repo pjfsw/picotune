@@ -26,6 +26,7 @@ static uint32_t dsp_control_id;
 
 // For ADSR
 static uint16_t env_table[ENVELOPE_STEPS];
+static uint16_t rev_env_table[ENVELOPE_SCALE];
 
 DspParam dsp_param;
 
@@ -73,17 +74,30 @@ static inline void update_ramp(Ramp *ramp, int32_t target, int32_t remaining) {
     ramp->step = (ramp->target - ramp->current) / ramp->remaining;
 }
 
+static inline void convert_attack_level_to_db(Ramp *ramp) {
+    ramp->current = rev_env_table[ramp->current >> (ENVELOPE_SCALE_SHIFT+ENVELOPE_FRACTIONAL_BITS)] << ENVELOPE_FRACTIONAL_BITS;
+    //ramp->current = 65535 << ENVELOPE_FRACTIONAL_BITS;
+    // level to dB table lookup and set current
+}
+
 static inline void update_adsr(Voice *voice) {
     if (is_gate_on(voice)) {
+        gpio_put(LED_PIN, false);            
+        voice->env_state = ENV_OFF;
         voice->ramp.current = 0;
         update_ramp(&voice->ramp, 65535, voice->voice_param.attack);
         voice->env_state = ENV_ATTACK;
     } if (is_gate_off(voice)) {
+        if (voice->env_state == ENV_ATTACK) {
+            gpio_put(LED_PIN, true);            
+            convert_attack_level_to_db(&voice->ramp);
+        }
         update_ramp(&voice->ramp, 0, voice->voice_param.release);
         voice->env_state = ENV_RELEASE;
     } else if (voice->ramp.remaining == 0) {
         switch (voice->env_state) {
             case ENV_ATTACK:
+                voice->ramp.current = 65535 << ENVELOPE_FRACTIONAL_BITS;
                 update_ramp(&voice->ramp, voice->voice_param.sustain, voice->voice_param.decay);
                 voice->env_state = ENV_DECAY;
                 break;
@@ -91,7 +105,6 @@ static inline void update_adsr(Voice *voice) {
                 voice->env_state = ENV_SUSTAIN;
                 break;
             case ENV_RELEASE:
-                voice->env_state = ENV_OFF;
                 break;
             default:
                 // Sustain + Off
@@ -209,16 +222,29 @@ static void setup_audio_stream() {
 }
 
 
-static void init_env_table() {
+static void init_env_tables() {
     float db_divisor = (float)ENVELOPE_STEPS/64.0f;
     float amp_scale = ENVELOPE_SCALE-1;
-    for (int i = 0; i < ENVELOPE_STEPS; i++) {
+    env_table[0] = 0;
+    for (int i = 1; i < ENVELOPE_STEPS; i++) {
         float dbfs = -(float)(ENVELOPE_STEPS - 1 - i) / db_divisor;
         float level = amp_scale * powf(10, dbfs / 20.0);
         env_table[i] = (uint16_t)level;
     }
-    env_table[0] = 0;
-    //env_table[ENVELOPE_STEPS-1] = 1023;
+
+    // Reverse voltage to dB table for attack phase
+    rev_env_table[0] = 0;
+    float db_min = -64.0;
+    for (int i = 1; i < ENVELOPE_SCALE; i++) {
+        float amp = (float)i / amp_scale;
+        float db = 20.0f * log10f(amp);
+        if (db < db_min) {
+            db = db_min;
+        }
+        float db_norm = (db - db_min) / (0.0 - db_min);
+
+        rev_env_table[i] = (uint16_t)(db_norm * 65535.0);
+    }
 }
 
 void dsp_run() {    
@@ -227,7 +253,7 @@ void dsp_run() {
     gpio_init(DEBUG_PIN);
     gpio_set_dir(DEBUG_PIN, GPIO_OUT);
 
-    init_env_table();
+    init_env_tables();
     for (int i = 0; i < NUMBER_OF_VOICES; i++) {
         copy_voice_control(i);
         synth_init(&voices[i], env_table);
