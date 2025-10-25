@@ -24,6 +24,11 @@ typedef struct {
     uint8_t table_weight;
     uint8_t pwm;
     Waveform waveform;
+    uint16_t attack;
+    uint16_t decay;
+    uint16_t sustain;
+    uint16_t release;
+    bool gate;
     bool highpass;
 } DspChannel;
 

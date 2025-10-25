@@ -1,3 +1,4 @@
+#include <math.h>
 #include "hardware/clocks.h"
 #include "hardware/dma.h"
 #include "hardware/pio.h"
@@ -24,6 +25,9 @@ static volatile bool data_requested = false;
 
 static uint32_t dsp_control_id;
 
+// For ADSR
+static uint16_t env_table[ENVELOPE_STEPS];
+
 DspParam dsp_param;
 static Voice voices[NUMBER_OF_VOICES];
 static int64_t block_buffer[BUF_LEN];
@@ -40,6 +44,10 @@ static void copy_voice_control() {
         voices[voice].voice_param.phase_add = dsp_param.channel[voice].phase_add;
         voices[voice].voice_param.table_weight = dsp_param.channel[voice].table_weight;
         voices[voice].voice_param.volume = dsp_param.channel[voice].volume;
+        voices[voice].voice_param.attack = dsp_param.channel[voice].attack;
+        voices[voice].voice_param.decay = dsp_param.channel[voice].decay;
+        voices[voice].voice_param.sustain = dsp_param.channel[voice].sustain;
+        voices[voice].voice_param.release = dsp_param.channel[voice].release;
         voices[voice].voice_param.wavetable = dsp_param.channel[voice].wavetable;
         voices[voice].voice_param.wavetable2 = dsp_param.channel[voice].wavetable2;
         voices[voice].voice_param.pwm = dsp_param.channel[voice].pwm << 24;
@@ -49,16 +57,24 @@ static void copy_voice_control() {
         voices[voice].noise.phase_inc = dsp_param.channel[voice].noise_phase_inc;
     }
 }
-    
+
+static inline bool is_gate_on(Voice *voice) {
+    return (voice->voice_param.gate && !voice->last_gate);
+}
+
+static inline bool is_gate_off(Voice *voice) {
+    return (!voice->voice_param.gate && voice->last_gate);
+}
 
 static inline void update_adsr(Voice *voice) {
-    uint16_t new_volume = voice->voice_param.volume;
+    /*uint16_t new_volume = voice->voice_param.volume;
     if (voice->ramp.target != new_volume) {
         voice->ramp.target = new_volume;
         voice->ramp.remaining = 48;
         int32_t target = new_volume;
         voice->ramp.step = (target - voice->ramp.current)/voice->ramp.remaining;    
-    }
+    }*/
+   voice->ramp.current = 65535;
 }
 
 static void fill_buffer(uint16_t *buffer, uint16_t buffer_size) {
@@ -164,6 +180,17 @@ static void setup_audio_stream() {
 }
 
 
+static void init_env_table() {
+    float db_divisor = (float)ENVELOPE_STEPS/64.0f;
+    float amp_scale = ENVELOPE_SCALE-1;
+    for (int i = 0; i < ENVELOPE_STEPS; i++) {
+        float dbfs = -(float)(ENVELOPE_STEPS - 1 - i) / db_divisor;
+        float level = amp_scale * powf(10, dbfs / 20.0);
+        env_table[i] = (uint16_t)level;
+    }
+    env_table[0] = 0;
+    //env_table[ENVELOPE_STEPS-1] = 1023;
+}
 
 void dsp_run() {    
     gpio_init(LED_PIN);
@@ -171,9 +198,10 @@ void dsp_run() {
     gpio_init(DEBUG_PIN);
     gpio_set_dir(DEBUG_PIN, GPIO_OUT);
 
-
+    init_env_table();
     for (int i = 0; i < NUMBER_OF_VOICES; i++) {
         copy_voice_control(i);
+        synth_init(&voices[i], env_table);
     }
     setup_audio_stream();
     while (true) {

@@ -3,16 +3,27 @@
 
 #include "pico/stdlib.h"
 
+#define ENVELOPE_BITS 10       // Number of entries in the envelope dB-to-V table
+#define ENVELOPE_SCALE_BITS 11 // Amplitude of the envelope dB-to-V table
+#define ENVELOPE_SCALE (1<<ENVELOPE_SCALE_BITS)
+#define ENVELOPE_STEPS (1<<ENVELOPE_BITS)
+#define ENVELOPE_SHIFT (16-ENVELOPE_BITS)
+
 typedef struct {
     const uint32_t *wavetable;
     const uint32_t *wavetable2;
     uint16_t volume;
     uint32_t phase_add;
     uint32_t pwm;
+    uint16_t attack;
+    uint16_t decay;
+    uint16_t sustain;
+    uint16_t release;
     uint8_t table_weight;
     bool highpass;
     bool use_pwm;
     bool use_noise;    
+    bool gate;   
 } VoiceParam;
 
 // 23-bit LFSR + variable-rate clock, integer-only
@@ -34,11 +45,19 @@ typedef struct {
 } SVF;
 
 typedef struct {
-    uint8_t target;
-    int32_t current;
+    int16_t target;
+    uint16_t current;
     int32_t step;
     int32_t remaining;
 } Ramp;
+
+typedef enum {
+    ENV_OFF = 0,
+    ENV_ATTACK = 1,
+    ENV_DECAY = 2,
+    ENV_SUSTAIN = 3,
+    ENV_RELEASE = 4,
+} EnvState;
 
 typedef struct {
     VoiceParam voice_param;    
@@ -47,6 +66,9 @@ typedef struct {
     Noise noise;
     SVF svf;
     uint32_t phase;
+    EnvState env_state;
+    uint16_t *env_table;
+    bool last_gate;
 } Voice;
 
 #endif 

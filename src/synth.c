@@ -13,12 +13,18 @@
 #define HP_400HZ 0x78C454BD
 #define HP_800HZ 0x7210D7DB
 
-void synth_init(Voice *voice) {
+
+void synth_init(Voice *voice, uint16_t *env_table) {
     voice->noise.lfsr = (uint32_t)time_us_32() & 0x7FFFFF;
      if (!voice->noise.lfsr) {
          voice->noise.lfsr = 1;
      }
     voice->noise.phase = 0;
+    voice->env_state = ENV_OFF;
+    voice->env_table = env_table;
+    voice->last_gate = false;
+    voice->ramp.remaining = 0;
+    voice->ramp.current = 0;
 }
 
 static int64_t get_oscillator(VoiceParam *voice_param, uint32_t phase) {
@@ -127,15 +133,16 @@ int32_t synth_next_sample(Voice *voice) {
     }
     out = out >> 1;
 
-    if (voice->ramp.remaining > 0) {
+    /*if (voice->ramp.remaining > 0) {
         voice->ramp.current += voice->ramp.step;
         voice->ramp.remaining--;
     } else {
-        voice->ramp.current = (int32_t)voice->ramp.target;
-    }
-   
-    int64_t tmp = ((int64_t)out * (int64_t)voice->ramp.current);
-    int32_t tmp32 = tmp >> 16; // compensate for remainder (8 bits) and table weight (8 bits)    
+        voice->ramp.current = voice->ramp.target;
+    }*/
+    int64_t env = (int64_t)(voice->env_table[voice->ramp.current >> ENVELOPE_SHIFT]);
+    //int64_t env = 1023;
+    int64_t tmp = ((int64_t)out * env * (int64_t)(voice->voice_param.volume));
+    int32_t tmp32 = tmp >> (16 + ENVELOPE_SCALE_BITS); // compensate 16-bit volume and x bit ADSR
     if (voice->voice_param.highpass) {
         tmp32 = highpass(&voice->hp_state, tmp32, HP_200HZ);
     }
