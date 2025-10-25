@@ -127,13 +127,6 @@ int32_t synth_next_sample(Voice *voice) {
     }
     out = out >> 1;
 
-    uint16_t new_volume = voice->voice_param.volume;
-    if (voice->ramp.target != new_volume) {
-        voice->ramp.target = new_volume;
-        voice->ramp.remaining = 48;
-        int32_t target = new_volume;
-        voice->ramp.step = (target - voice->ramp.current)/voice->ramp.remaining;    
-    }
     if (voice->ramp.remaining > 0) {
         voice->ramp.current += voice->ramp.step;
         voice->ramp.remaining--;

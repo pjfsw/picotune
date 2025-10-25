@@ -7,15 +7,14 @@
 #define VOLUME_STEPS 64
 
 typedef struct {
-    uint16_t frequency8;    // Frequency * 8
-    uint8_t control;        // Bit 0..5 volume, bit 6-7 waveform select (00=Saw, 01=Pulse, 10=Triangle, 11=Noise)
+    uint16_t frequency8;    // Frequency * 8 (Alt: Bit 8..14 midinote, bit 0..7 = midinote fractional part)
+    uint16_t envelope;      // Bit 0..3 Attack, bit 4..7 = Decay, bit 8..11 = Sustain, bit 12..15 = Release
+    uint8_t control;         // Bit 0..5 volume, bit 6 = highpass, bit 7 = gate
     uint8_t pwm;            // PWM byte 0..255
 } VoiceRegisters;
 
 typedef struct {
     VoiceRegisters voices[NUMBER_OF_VOICES];
-    uint16_t global_control; // Bit 0..5 global volume,
-                             // bit 6..15 reserved (filter setting per channel etc)
 } SynthRegisters; // 18 bytes*/
 
 typedef struct {

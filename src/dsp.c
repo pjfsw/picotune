@@ -50,7 +50,16 @@ static void copy_voice_control() {
     }
 }
     
-bool herp;
+
+static inline void update_adsr(Voice *voice) {
+    uint16_t new_volume = voice->voice_param.volume;
+    if (voice->ramp.target != new_volume) {
+        voice->ramp.target = new_volume;
+        voice->ramp.remaining = 48;
+        int32_t target = new_volume;
+        voice->ramp.step = (target - voice->ramp.current)/voice->ramp.remaining;    
+    }
+}
 
 static void fill_buffer(uint16_t *buffer, uint16_t buffer_size) {
 
@@ -61,6 +70,8 @@ static void fill_buffer(uint16_t *buffer, uint16_t buffer_size) {
         dsp_control_id = current_id;
     }
     for (int v = 0; v < NUMBER_OF_VOICES; v++) {
+        update_adsr(&voices[v]);
+
         for (int sample = 0; sample < buffer_size; sample++) {
             int64_t amp = (int64_t)synth_next_sample(&voices[v]);
             if (v > 0) {
