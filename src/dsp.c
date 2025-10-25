@@ -13,7 +13,6 @@
 #define PIN_MOSI 19
 
 #define FREQ 440.0f
-#define BUF_LEN 16
 
 #define LED_PIN 25
 #define DEBUG_PIN 22
@@ -29,6 +28,7 @@ static uint32_t dsp_control_id;
 static uint16_t env_table[ENVELOPE_STEPS];
 
 DspParam dsp_param;
+
 static Voice voices[NUMBER_OF_VOICES];
 static int64_t block_buffer[BUF_LEN];
 
@@ -51,10 +51,11 @@ static void copy_voice_control() {
         voices[voice].voice_param.wavetable = dsp_param.channel[voice].wavetable;
         voices[voice].voice_param.wavetable2 = dsp_param.channel[voice].wavetable2;
         voices[voice].voice_param.pwm = dsp_param.channel[voice].pwm << 24;
-        voices[voice].voice_param.highpass = dsp_param.channel[voice].highpass;
         voices[voice].voice_param.use_pwm = dsp_param.channel[voice].waveform == WAV_SQUARE;
         voices[voice].voice_param.use_noise = dsp_param.channel[voice].waveform == WAV_NOISE;
         voices[voice].noise.phase_inc = dsp_param.channel[voice].noise_phase_inc;
+        voices[voice].voice_param.highpass = dsp_param.channel[voice].highpass;
+        voices[voice].voice_param.gate = dsp_param.channel[voice].gate;
     }
 }
 
@@ -67,14 +68,13 @@ static inline bool is_gate_off(Voice *voice) {
 }
 
 static inline void update_adsr(Voice *voice) {
-    /*uint16_t new_volume = voice->voice_param.volume;
-    if (voice->ramp.target != new_volume) {
-        voice->ramp.target = new_volume;
-        voice->ramp.remaining = 48;
-        int32_t target = new_volume;
-        voice->ramp.step = (target - voice->ramp.current)/voice->ramp.remaining;    
-    }*/
-   voice->ramp.current = 65535;
+    if (is_gate_on(voice)) {
+        voice->ramp.target = 0;
+        voice->ramp.remaining = 32768;// voice->voice_param.release;
+        voice->ramp.current = 65535;
+        voice->ramp.step = (voice->ramp.target - voice->ramp.current) / voice->ramp.remaining;
+    }
+   voice->last_gate = voice->voice_param.gate;
 }
 
 static void fill_buffer(uint16_t *buffer, uint16_t buffer_size) {

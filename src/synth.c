@@ -133,12 +133,13 @@ int32_t synth_next_sample(Voice *voice) {
     }
     out = out >> 1;
 
-    /*if (voice->ramp.remaining > 0) {
+    if (voice->ramp.remaining > 0) {
         voice->ramp.current += voice->ramp.step;
         voice->ramp.remaining--;
     } else {
         voice->ramp.current = voice->ramp.target;
-    }*/
+    }
+    
     int64_t env = (int64_t)(voice->env_table[voice->ramp.current >> ENVELOPE_SHIFT]);
     //int64_t env = 1023;
     int64_t tmp = ((int64_t)out * env * (int64_t)(voice->voice_param.volume));

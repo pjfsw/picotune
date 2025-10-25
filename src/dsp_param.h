@@ -4,8 +4,14 @@
 #include "pico/stdlib.h"
 #include <stdatomic.h>
 
+#define BUF_LEN 16
+
 #define NUMBER_OF_VOICES 4
 #define VOICE_DOWN_MIX_BITS 0
+
+#define ENVELOPE_BITS 10       // Number of entries in the envelope dB-to-V table
+#define ENVELOPE_STEPS (1<<ENVELOPE_BITS)
+#define ENVELOPE_SHIFT (16-ENVELOPE_BITS)
 
 typedef enum {
     WAV_SAW = 0,

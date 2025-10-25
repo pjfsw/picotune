@@ -149,46 +149,49 @@ typedef struct {
 
 Instr instr[NUMBER_OF_VOICES];
 
+uint16_t adsr = 0x000f;
 static inline void sequencer_callback() {
     dspc_latch();
 
     for (int i = 0; i < NUMBER_OF_VOICES; i++) {
         dspc_set_control(dspc, i, 0x40 | vol[i]);
         dspc_set_pwm(dspc, i, pwm[i]);
-        if (vol[i] > 0) {
-            vol[i]--;
-        } else {
-            vol[i] = 0;
-        }
         pwm[i]+=instr[i].pwm;
     }
 
     if (step == 6) {
         uint8_t track_pos = songpos & 0x1f;
         Song *song = &control.song;
-        for (int i = 0; i < NUMBER_OF_VOICES; i++) {
+        for (int i = 0; i < NUMBER_OF_VOICES; i++) {            
             if (song->notes[i][track_pos] > 0) {
                 uint16_t freq8 = control.freq8table[song->notes[i][track_pos]];
                 dspc_set_frequency(dspc, i, freq8);
                 pwm[i] = 63;
                 vol[i] = instr[i].vol;
-            } 
+                dspc_set_envelope(dspc, i, adsr | (1<<ENV_GATE_BIT));
+            } else {
+                dspc_set_envelope(dspc, i, adsr);
+            }
         }
         songpos++;
         step = 0;
     } else {
+        for (int i = 0; i < NUMBER_OF_VOICES; i++) {
+            dspc_set_envelope(dspc, i, adsr);
+        }        
         step++;
     }
 }
 
 static void init_song(Song *song) {
     memset(song, 0, sizeof(Song));
+    //int8_t bass_notes[32] = {38,0,38,0,50,0,38,0,38,50,0,38,50,0,38,0, 34,0,34,0,46,0,34,0,34,46,0,34,46,0,48,0};
     int8_t bass_notes[32] = {38,0,38,0,50,0,38,0,38,50,0,38,50,0,38,0, 34,0,34,0,46,0,34,0,34,46,0,34,46,0,48,0};
     memcpy(&song->notes[0], bass_notes, 32);
-    int8_t mid_notes[32] = {62,0,0,65,0,0,67,0,   62,0,0,60,0,0,62,0, 62,0,0,65,0,0,67,0,   62,0,0,60,0,0,62,0};
+    /*int8_t mid_notes[32] = {62,0,0,65,0,0,67,0,   62,0,0,60,0,0,62,0, 62,0,0,65,0,0,67,0,   62,0,0,60,0,0,62,0};
     memcpy(&song->notes[1], mid_notes, 32);
     int8_t mid2_notes[32] = {74,0,74,0,74,0,74,0,74,0,74,0,74,0,74,0, 76,0,76,0,76,0,76,0,77,0,77,0,77,0,77,0};
-    memcpy(&song->notes[2], mid2_notes, 32);
+    memcpy(&song->notes[2], mid2_notes, 32);*/
     instr[0].vol = 63;
     instr[0].pwm = 2;
     instr[1].vol = 62;

@@ -3,11 +3,8 @@
 
 #include "pico/stdlib.h"
 
-#define ENVELOPE_BITS 10       // Number of entries in the envelope dB-to-V table
 #define ENVELOPE_SCALE_BITS 11 // Amplitude of the envelope dB-to-V table
 #define ENVELOPE_SCALE (1<<ENVELOPE_SCALE_BITS)
-#define ENVELOPE_STEPS (1<<ENVELOPE_BITS)
-#define ENVELOPE_SHIFT (16-ENVELOPE_BITS)
 
 typedef struct {
     const uint32_t *wavetable;
@@ -45,8 +42,8 @@ typedef struct {
 } SVF;
 
 typedef struct {
-    int16_t target;
-    uint16_t current;
+    int32_t target;
+    int32_t current;
     int32_t step;
     int32_t remaining;
 } Ramp;
