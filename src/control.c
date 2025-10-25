@@ -149,7 +149,8 @@ typedef struct {
 
 Instr instr[NUMBER_OF_VOICES];
 
-uint16_t adsr = 0x000f;
+uint16_t adsr[NUMBER_OF_VOICES] = {0x03ed, 0x34ca, 0x0000,0x0000};
+
 static inline void sequencer_callback() {
     dspc_latch();
 
@@ -159,26 +160,33 @@ static inline void sequencer_callback() {
         pwm[i]+=instr[i].pwm;
     }
 
-    if (step == 6) {
-        uint8_t track_pos = songpos & 0x1f;
-        Song *song = &control.song;
+    uint8_t track_pos = songpos & 0x1f;
+    Song *song = &control.song;
+    if (step == 5) {
         for (int i = 0; i < NUMBER_OF_VOICES; i++) {            
-            if (song->notes[i][track_pos] > 0) {
-                uint16_t freq8 = control.freq8table[song->notes[i][track_pos]];
+            int8_t note = song->notes[i][track_pos];
+            if (note > 0) {
+                // Clear gate bit just before next note
+                dspc_set_envelope(dspc, i, adsr[i]);
+            }            
+        }
+    }
+    if (step == 6) {
+        for (int i = 0; i < NUMBER_OF_VOICES; i++) {            
+            int8_t note = song->notes[i][track_pos];
+            if (note > 0) {
+                uint16_t freq8 = control.freq8table[note];
                 dspc_set_frequency(dspc, i, freq8);
                 pwm[i] = 63;
                 vol[i] = instr[i].vol;
-                dspc_set_envelope(dspc, i, adsr | (1<<ENV_GATE_BIT));
-            } else {
-                dspc_set_envelope(dspc, i, adsr);
+                dspc_set_envelope(dspc, i, adsr[i] | (1<<ENV_GATE_BIT));
+            } else if (note < 0) {
+                dspc_set_envelope(dspc, i, adsr[i]);
             }
         }
         songpos++;
         step = 0;
     } else {
-        for (int i = 0; i < NUMBER_OF_VOICES; i++) {
-            dspc_set_envelope(dspc, i, adsr);
-        }        
         step++;
     }
 }
@@ -186,10 +194,11 @@ static inline void sequencer_callback() {
 static void init_song(Song *song) {
     memset(song, 0, sizeof(Song));
     //int8_t bass_notes[32] = {38,0,38,0,50,0,38,0,38,50,0,38,50,0,38,0, 34,0,34,0,46,0,34,0,34,46,0,34,46,0,48,0};
-    int8_t bass_notes[32] = {38,0,0,0,0,0,38,0,38,50,0,38,50,0,38,0, 34,0,0,0,46,0,34,0,34,46,0,34,46,0,48,0};
+    int8_t bass_notes[32] = {38,0,0,-1,0,0,38,0,38,50,0,38,50,0,38,0, 34,0,-1,0,46,0,34,0,34,46,0,34,46,0,48,0};
+    int8_t mid_notes[32] = {62,0,0,0,-1,0,0,0, 64,0,0,0,-1,0,0,0,65,0,0,0,-1,0,0,0,67,0,0,-1,69,0,0,-1};
     memcpy(&song->notes[0], bass_notes, 32);
-    /*int8_t mid_notes[32] = {62,0,0,65,0,0,67,0,   62,0,0,60,0,0,62,0, 62,0,0,65,0,0,67,0,   62,0,0,60,0,0,62,0};
     memcpy(&song->notes[1], mid_notes, 32);
+    /*int8_t mid_notes[32] = {62,0,0,65,0,0,67,0,   62,0,0,60,0,0,62,0, 62,0,0,65,0,0,67,0,   62,0,0,60,0,0,62,0};
     int8_t mid2_notes[32] = {74,0,74,0,74,0,74,0,74,0,74,0,74,0,74,0, 76,0,76,0,76,0,76,0,77,0,77,0,77,0,77,0};
     memcpy(&song->notes[2], mid2_notes, 32);*/
     instr[0].vol = 63;

@@ -67,13 +67,42 @@ static inline bool is_gate_off(Voice *voice) {
     return (!voice->voice_param.gate && voice->last_gate);
 }
 
+static inline void update_ramp(Ramp *ramp, int32_t target, int32_t remaining) {
+    ramp->target = target << ENVELOPE_FRACTIONAL_BITS;
+    ramp->remaining = remaining;
+    ramp->step = (ramp->target - ramp->current) / ramp->remaining;
+}
+
 static inline void update_adsr(Voice *voice) {
     if (is_gate_on(voice)) {
-        voice->ramp.target = 0 << ENVELOPE_FRACTIONAL_BITS;
+        voice->ramp.current = 0;
+        update_ramp(&voice->ramp, 65535, voice->voice_param.attack);
+        voice->env_state = ENV_ATTACK;
+    } if (is_gate_off(voice)) {
+        update_ramp(&voice->ramp, 0, voice->voice_param.release);
+        voice->env_state = ENV_RELEASE;
+    } else if (voice->ramp.remaining == 0) {
+        switch (voice->env_state) {
+            case ENV_ATTACK:
+                update_ramp(&voice->ramp, voice->voice_param.sustain, voice->voice_param.decay);
+                voice->env_state = ENV_DECAY;
+                break;
+            case ENV_DECAY:
+                voice->env_state = ENV_SUSTAIN;
+                break;
+            case ENV_RELEASE:
+                voice->env_state = ENV_OFF;
+                break;
+            default:
+                // Sustain + Off
+        }
+    }
+
+        /*voice->ramp.target = 0 << ENVELOPE_FRACTIONAL_BITS;
         voice->ramp.remaining = voice->voice_param.release;
         voice->ramp.current = 65535 << ENVELOPE_FRACTIONAL_BITS;
         voice->ramp.step = (voice->ramp.target - voice->ramp.current) / voice->ramp.remaining;
-    }
+    }*/
     voice->last_gate = voice->voice_param.gate;
 }
 
