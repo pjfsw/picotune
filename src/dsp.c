@@ -41,21 +41,21 @@ static inline uint16_t mcp4822_frame(uint16_t v12) {
 
 static void copy_voice_control() {
     for (int voice = 0; voice < NUMBER_OF_VOICES; voice++) {
-        voices[voice].voice_param.phase_add = dsp_param.channel[voice].phase_add;
-        voices[voice].voice_param.table_weight = dsp_param.channel[voice].table_weight;
-        voices[voice].voice_param.volume = dsp_param.channel[voice].volume;
-        voices[voice].voice_param.attack = dsp_param.channel[voice].attack;
-        voices[voice].voice_param.decay = dsp_param.channel[voice].decay;
-        voices[voice].voice_param.sustain = dsp_param.channel[voice].sustain;
-        voices[voice].voice_param.release = dsp_param.channel[voice].release;
-        voices[voice].voice_param.wavetable = dsp_param.channel[voice].wavetable;
-        voices[voice].voice_param.wavetable2 = dsp_param.channel[voice].wavetable2;
-        voices[voice].voice_param.pwm = dsp_param.channel[voice].pwm << 24;
-        voices[voice].voice_param.use_pwm = dsp_param.channel[voice].waveform == WAV_SQUARE;
-        voices[voice].voice_param.use_noise = dsp_param.channel[voice].waveform == WAV_NOISE;
-        voices[voice].noise.phase_inc = dsp_param.channel[voice].noise_phase_inc;
-        voices[voice].voice_param.highpass = dsp_param.channel[voice].highpass;
-        voices[voice].voice_param.gate = dsp_param.channel[voice].gate;
+        voices[voice].voice_param.phase_add = dsp_param.channels[voice].phase_add;
+        voices[voice].voice_param.table_weight = dsp_param.channels[voice].table_weight;
+        voices[voice].voice_param.volume = dsp_param.channels[voice].volume;
+        voices[voice].voice_param.attack = dsp_param.channels[voice].attack;
+        voices[voice].voice_param.decay = dsp_param.channels[voice].decay;
+        voices[voice].voice_param.sustain = dsp_param.channels[voice].sustain;
+        voices[voice].voice_param.release = dsp_param.channels[voice].release;
+        voices[voice].voice_param.wavetable = dsp_param.channels[voice].wavetable;
+        voices[voice].voice_param.wavetable2 = dsp_param.channels[voice].wavetable2;
+        voices[voice].voice_param.pwm = dsp_param.channels[voice].pwm << 24;
+        voices[voice].voice_param.use_pwm = dsp_param.channels[voice].waveform == WAV_SQUARE;
+        voices[voice].voice_param.use_noise = dsp_param.channels[voice].waveform == WAV_NOISE;
+        voices[voice].noise.phase_inc = dsp_param.channels[voice].noise_phase_inc;
+        voices[voice].voice_param.highpass = dsp_param.channels[voice].highpass;
+        voices[voice].voice_param.gate = dsp_param.channels[voice].gate;
     }
 }
 

@@ -39,7 +39,7 @@ typedef struct {
 } DspChannel;
 
 typedef struct {
-    DspChannel channel[NUMBER_OF_VOICES];
+    DspChannel *channels;
      _Atomic uint32_t control_id;
 } DspParam;
 

@@ -6,18 +6,19 @@
 
 extern DspParam dsp_param;
 
+static DspChannel dsp_channels[2][NUMBER_OF_VOICES];
+static DspChannel *current_dsp_channels = dsp_channels[0];
+static int current_dsp_ptr = 0;
+
 static DspControl singleton;
 
-static void reset_registers() {
-    for (int i = 0; i < NUMBER_OF_VOICES; i++) {
-        dsp_param.channel[i].waveform = WAV_SAW;
-        dsp_param.channel[i].phase_add = 0;
-        dsp_param.channel[i].volume = 0;
-        dsp_param.channel[i].pwm = 0;
-        dsp_param.channel[i].highpass = false;
-        get_wavetable_for_frequency(440, &dsp_param.channel[i]);
-    }
-    dsp_param.control_id = 0;
+static void reset_registers(DspChannel *dsp_channel) {
+    dsp_channel->waveform = WAV_SAW;
+    dsp_channel->phase_add = 0;
+    dsp_channel->volume = 0;
+    dsp_channel->pwm = 0;
+    dsp_channel->highpass = false;
+    get_wavetable_for_frequency(440, dsp_channel);
 }
 
 static void init_volume_maps(DspControl *dspc) {
@@ -69,9 +70,19 @@ DspControl *dspc_singleton() {
     return &singleton;
 }
 
+static inline void set_current_dsp_channels() {
+    current_dsp_channels = dsp_channels[current_dsp_ptr]; 
+}
+
 void dspc_init(DspControl *dspc) {
     memset(dspc, 0, sizeof(DspControl));
-    reset_registers();
+    for (int i = 0 ; i < NUMBER_OF_VOICES; i++) {
+        reset_registers(&dsp_channels[0][i]);
+        reset_registers(&dsp_channels[1][i]);
+    }
+    dsp_param.control_id = 0;
+    current_dsp_ptr = 0;
+    set_current_dsp_channels();
     init_volume_maps(dspc);
     init_envelope_maps(dspc);
 }
@@ -98,14 +109,14 @@ static uint32_t get_noise_phase_inc(uint32_t f_update) {
 }
 
 static inline void refresh_wavetable(DspControl *dspc, int voice) {
-    get_wavetable_for_frequency(dspc->registers.voices[voice].frequency8>>3, &dsp_param.channel[voice]);         
+    get_wavetable_for_frequency(dspc->registers.voices[voice].frequency8>>3, &current_dsp_channels[voice]);         
 }
 
 static inline void transform_voice_frequency(DspControl *dspc, int voice) {
     uint32_t frequency8 = dspc->registers.voices[voice].frequency8;
-    dsp_param.channel[voice].phase_add = (uint32_t)((((uint64_t)frequency8) << 29) / SAMPLE_RATE);
+    current_dsp_channels[voice].phase_add = (uint32_t)((((uint64_t)frequency8) << 29) / SAMPLE_RATE);
     refresh_wavetable(dspc, voice);
-    dsp_param.channel[voice].noise_phase_inc = get_noise_phase_inc(frequency8>>1);
+    current_dsp_channels[voice].noise_phase_inc = get_noise_phase_inc(frequency8>>1);
 }
 
 void dspc_set_frequency(DspControl *dspc, int voice, uint16_t frequency8) {
@@ -116,8 +127,8 @@ void dspc_set_frequency(DspControl *dspc, int voice, uint16_t frequency8) {
 static void transform_voice_control(DspControl *dspc, int voice) {
     uint8_t volume = dspc->registers.voices[voice].control & 0x3f;
     uint8_t waveform = dspc->registers.voices[voice].control >> 6;
-    dsp_param.channel[voice].volume = dspc->volmap[waveform][volume];
-    dsp_param.channel[voice].waveform = waveform;
+    current_dsp_channels[voice].volume = dspc->volmap[waveform][volume];
+    current_dsp_channels[voice].waveform = waveform;
     refresh_wavetable(dspc, voice);
 }
 
@@ -128,12 +139,12 @@ void dspc_set_control(DspControl *dspc, int voice, uint8_t control_value) {
 
 static void transform_voice_envelope(DspControl *dspc, int voice) {
     uint16_t envelope = dspc->registers.voices[voice].envelope;
-    dsp_param.channel[voice].release = 128; // dspc->adsr.release_map[(envelope >> 0) & 15];
-    dsp_param.channel[voice].sustain = (envelope >> 4) & 15;
-    dsp_param.channel[voice].decay = dspc->adsr.decay_map[(envelope >> 8) & 15];
-    dsp_param.channel[voice].attack = dspc->adsr.attack_map[(envelope >> 12) & 3];
-    dsp_param.channel[voice].gate = (envelope >> ENV_GATE_BIT) & 1;
-    dsp_param.channel[voice].highpass = (envelope >> ENV_HPF_BIT) & 1;
+    current_dsp_channels[voice].release = 128; // dspc->adsr.release_map[(envelope >> 0) & 15];
+    current_dsp_channels[voice].sustain = (envelope >> 4) & 15;
+    current_dsp_channels[voice].decay = dspc->adsr.decay_map[(envelope >> 8) & 15];
+    current_dsp_channels[voice].attack = dspc->adsr.attack_map[(envelope >> 12) & 3];
+    current_dsp_channels[voice].gate = (envelope >> ENV_GATE_BIT) & 1;
+    current_dsp_channels[voice].highpass = (envelope >> ENV_HPF_BIT) & 1;
 }
 
 void dspc_set_envelope(DspControl *dspc, int voice, uint16_t env) {
@@ -141,7 +152,7 @@ void dspc_set_envelope(DspControl *dspc, int voice, uint16_t env) {
     transform_voice_envelope(dspc, voice);
 }
 static void transform_voice_pwm(DspControl *dspc, int voice) {
-    dsp_param.channel[voice].pwm = dspc->registers.voices[voice].pwm;
+    current_dsp_channels[voice].pwm = dspc->registers.voices[voice].pwm;
 }
 
 void dspc_set_pwm(DspControl *dspc, int voice, uint8_t pwm) {
@@ -150,7 +161,11 @@ void dspc_set_pwm(DspControl *dspc, int voice, uint8_t pwm) {
 }
 
 void dspc_latch() {
+    dsp_param.channels = current_dsp_channels;
     atomic_fetch_add_explicit(&dsp_param.control_id, 1, memory_order_release);
+    memcpy(dsp_channels[1 - current_dsp_ptr], dsp_channels[current_dsp_ptr], sizeof(DspChannel));
+    current_dsp_ptr = 1 - current_dsp_ptr;
+    set_current_dsp_channels();
 }
 
 
