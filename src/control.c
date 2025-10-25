@@ -45,17 +45,18 @@ uint8_t pwm[NUMBER_OF_VOICES];
 typedef struct {
     int8_t vol;
     uint8_t pwm;
+    uint8_t wf;
 } Instr;
 
 Instr instr[NUMBER_OF_VOICES];
 
-uint16_t adsr[NUMBER_OF_VOICES] = {0x039d, 0x395d, 0x0000,0x0000};
+uint16_t adsr[NUMBER_OF_VOICES] = {0x03cd, 0x395d, 0x0475,0x02b6};
 
 static inline void sequencer_callback() {
     dspc_latch();
 
     for (int i = 0; i < NUMBER_OF_VOICES; i++) {
-        dspc_set_control(dspc, i, 0x40 | vol[i]);
+        dspc_set_control(dspc, i, instr[i].wf | vol[i]);
         dspc_set_pwm(dspc, i, pwm[i]);
         pwm[i]+=instr[i].pwm;
     }
@@ -93,19 +94,24 @@ static inline void sequencer_callback() {
 
 static void init_song(Song *song) {
     memset(song, 0, sizeof(Song));
-    //int8_t bass_notes[32] = {38,0,0,-1,0,0,38,0,38,50,0,38,50,0,38,0, 34,0,-1,0,46,0,34,0,34,46,0,34,46,0,48,0};
-    int8_t mid_notes[32] = {62,0,0,0,0,0,0,-1, 64,0,-1,0,0,0,0,-1,60,0,0,0,0,0,0,-1,67,0,0,-1,69,0,0,-1};
-    //memcpy(&song->notes[0], bass_notes, 32);
+    int8_t bass_notes[32] = {38,0,0,-1,0,0,38,0,38,50,0,38,50,0,38,0, 34,0,-1,0,46,0,34,0,34,46,0,34,46,0,48,0};
+    int8_t mid_notes[32] = {62,0,0,0,0,0,-1,0, 64,0,0,0,0,0,-1,0,65,0,0,0,0,0,67,0,64,0,0,-1,60,0,0,-1};
+    int8_t mid2_notes[32] = {57,-1,62,-1,74,-1,74,-1,57,-1,62,-1,74,-1,74,-1,57,-1,62,-1,74,-1,74,-1,57,-1,62,-1,76,77,72,74};
+    int8_t rythm_notes[32] = {0,0,0,0,90,-1,0,0,0,0,0,0,90,-1,0,0,0,0,0,0,90,-1,0,0,0,0,0,0,90,-1,90,-1};
+    memcpy(&song->notes[0], bass_notes, 32);
     memcpy(&song->notes[1], mid_notes, 32);
-    /*int8_t mid_notes[32] = {62,0,0,65,0,0,67,0,   62,0,0,60,0,0,62,0, 62,0,0,65,0,0,67,0,   62,0,0,60,0,0,62,0};
-    int8_t mid2_notes[32] = {74,0,74,0,74,0,74,0,74,0,74,0,74,0,74,0, 76,0,76,0,76,0,76,0,77,0,77,0,77,0,77,0};
-    memcpy(&song->notes[2], mid2_notes, 32);*/
+    memcpy(&song->notes[2], mid2_notes, 32);
+    memcpy(&song->notes[3], rythm_notes, 32);
     instr[0].vol = 63;
     instr[0].pwm = 2;
-    instr[1].vol = 62;
+    instr[0].wf = 0x40;
+    instr[1].vol = 58;
     instr[1].pwm = 3;
-    instr[2].vol = 54;
-    instr[2].pwm = 4;
+    instr[1].wf = 0x40;
+    instr[2].vol = 58;
+    instr[2].wf = 0x00;
+    instr[3].vol = 63;
+    instr[3].wf = 0xc0;
 }
 
 static inline void pulse() {
