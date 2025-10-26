@@ -75,8 +75,8 @@ Drum drum[] = {
     { .control = 0xc0 | 0x3f, .note = 105, .delay = 1, .gate = 0 },*/
     { .control = 0x40 | 0x3f, .note = 50, .delay = 0, .gate = (1<<ENV_GATE_BIT) },
     { .control = 0x40 | 0x3f, .note = 50, .delay = 0, .gate = 00 },
-    { .control = 0xc0 | 0x3f, .note = 105, .delay = 2, .gate = (1<<ENV_GATE_BIT) },
-    { .control = 0x40 | 0x3f, .note = 50, .delay = 0, .gate = 00 },
+    { .control = 0xc0 | 0x3f, .note = 105, .delay = 1, .gate = (1<<ENV_GATE_BIT) },
+    { .control = 0xc0 | 0x3f, .note = 105, .delay = 0, .gate = 0 },
     {. control = 0xc0 | 0x3f, .note = -1, .delay = 0, .gate = 0x00 }
 };
 
