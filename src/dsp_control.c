@@ -17,12 +17,22 @@ static void reset_registers(DspChannel *dsp_channel) {
     get_wavetable_for_frequency(440, dsp_channel);
 }
 
+float db_map[VOLUME_STEPS] = {
+        0,   -0.6f,  -1.2f,  -1.8f,  -2.4f,  -3.0f,  -3.6f,  -4.2f,
+     -4.8f,  -5.4f,  -6.0f,  -6.6f,  -7.2f,  -7.8f,  -8.4f,  -9.1f,
+     -9.8f, -10.6f, -11.4f, -12.2f, -13.0f, -13.8f, -14.6f, -15.4f,
+    -16.2f, -17.0f, -17.8f, -18.6f, -19.4f, -20.2f, -21.0f, -21.8f,   
+    -22.6f, -23.4f, -24.2f, -25.0f, -25.8f, -26.6f, -27.4f, -28.2f,
+    -29.0f, -29.8f, -30.6f, -31.4f, -32.2f, -33.0f, -33.8f, -34.6f,
+    -35.4f, -36.2f, -37.0f, -37.8f, -38.6f, -39.4f, -40.2f, -41.0f,
+    -41.8f, -42.6f, -43.4f, -44.2f, -45.0f, -45.8f, -46.6f, -47.4f
+};
 static void init_volume_maps(DspControl *dspc) {
 //    float peak_level[4] = {-4,-6,-3,-4};
     float peak_level[4] = {-3,-5,-2,-3};
     for (int wav = 0; wav < 4; wav++) {
         for (int i = 0; i < VOLUME_STEPS; i++) {
-            float dbfs = peak_level[wav]-(VOLUME_STEPS-1-i);
+            float dbfs = peak_level[wav]+db_map[VOLUME_STEPS-1-i];    //(VOLUME_STEPS-1-i);
             float level = 65535.0 * powf(10, dbfs/20.0);
             dspc->volmap[wav][i] = (uint16_t)level;
         }

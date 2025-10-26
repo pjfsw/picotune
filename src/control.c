@@ -50,12 +50,12 @@ typedef struct {
 
 Instr instr[NUMBER_OF_VOICES];
 
-uint16_t adsr[NUMBER_OF_VOICES] = {0x43bd, 0x799e, 0x0475,0x02b6};
+uint16_t adsr[NUMBER_OF_VOICES] = {0x43bd, 0x799e, 0x4475,0x02b6};
 
 #define FILTER_DROP_START 0xc000
 #define FILTER_DROP_END 0x0c00
 #define FILTER_DROP_SPEED 0x1000
-#define FILTER_Q 1
+#define FILTER_Q 3
 
 int32_t filter_sweep_value = 0;
 uint16_t hpfc = 1024;
@@ -101,7 +101,7 @@ static inline void sequencer_callback() {
         pwm[i]+=instr[i].pwm;
     }
     dspc_set_filter_hp_fc(dspc, hpfc);
-    dspc_set_mode(dspc, 2); // Highpass filter on second channel
+    dspc_set_mode(dspc, 2|4); // Highpass filter on second + third channel
     dspc_set_filter_lp_fc(dspc, filter_sweep_value);
     dspc_set_filter_lp_q(dspc, FILTER_Q);
     filter_sweep_value -= FILTER_DROP_SPEED;
@@ -121,13 +121,13 @@ static void init_song(Song *song) {
     memcpy(&song->notes[1], mid_notes, 32);
     memcpy(&song->notes[2], mid2_notes, 32);
     memcpy(&song->notes[3], rythm_notes, 32);
-    instr[0].vol = 62;
+    instr[0].vol = 61;
     instr[0].pwm = 2;
     instr[0].wf = 0x40;
     instr[1].vol = 59;
     instr[1].pwm = 3;
     instr[1].wf = 0x40;
-    instr[2].vol = 58;
+    instr[2].vol = 60;
     instr[2].wf = 0x00;
     instr[3].vol = 63;
     instr[3].wf = 0xc0;
