@@ -51,7 +51,7 @@ typedef struct {
 
 Instr instr[NUMBER_OF_VOICES];
 
-uint16_t adsr[NUMBER_OF_VOICES] = {0x43bd, 0x799e, 0x4475,0x02b6};
+uint16_t adsr[NUMBER_OF_VOICES] = {0x43bd, 0x799e, 0x4475,0x03c8};
 
 #define FILTER_DROP_START 0xc000
 #define FILTER_DROP_END 0x0c00
@@ -60,6 +60,25 @@ uint16_t adsr[NUMBER_OF_VOICES] = {0x43bd, 0x799e, 0x4475,0x02b6};
 
 int32_t filter_sweep_value = 0;
 uint16_t hpfc = 1024;
+int8_t drum_pos = -1;
+uint8_t drum_delay = 0;
+
+typedef struct {
+    uint16_t gate;
+    uint8_t control;
+    int8_t note;    
+    uint8_t delay;
+} Drum;
+
+Drum drum[] = {
+    /*{ .control = 0xc0 | 0x3f, .note = 105, .delay = 1, .gate = (1<<ENV_GATE_BIT) },
+    { .control = 0xc0 | 0x3f, .note = 105, .delay = 1, .gate = 0 },*/
+    { .control = 0x40 | 0x3f, .note = 50, .delay = 0, .gate = (1<<ENV_GATE_BIT) },
+    { .control = 0x40 | 0x3f, .note = 50, .delay = 0, .gate = 00 },
+    { .control = 0xc0 | 0x3f, .note = 105, .delay = 2, .gate = (1<<ENV_GATE_BIT) },
+    { .control = 0x40 | 0x3f, .note = 50, .delay = 0, .gate = 00 },
+    {. control = 0xc0 | 0x3f, .note = -1, .delay = 0, .gate = 0x00 }
+};
 
 static inline void sequencer_callback() {
     dspc_latch();
@@ -76,16 +95,21 @@ static inline void sequencer_callback() {
         }
     }
     if (step == 6) {
-        for (int i = 0; i < NUMBER_OF_VOICES; i++) {            
+        for (int i = 0; i < NUMBER_OF_VOICES; i++) {
             int8_t note = song->notes[i][track_pos];
             if (note > 0) {
-                uint16_t freq8 = control.freq8table[note];
-                dspc_set_frequency(dspc, i, freq8);
-                pwm[i] = instr[i].pwm_ofs;
-                vol[i] = instr[i].vol;
-                dspc_set_envelope(dspc, i, adsr[i] | (1<<ENV_GATE_BIT));
-                if (i == 0) {
-                    filter_sweep_value = FILTER_DROP_START;
+                if (i < 3) {
+                    uint16_t freq8 = control.freq8table[note];
+                    dspc_set_frequency(dspc, i, freq8);
+                    pwm[i] = instr[i].pwm_ofs;
+                    vol[i] = instr[i].vol;
+                    dspc_set_envelope(dspc, i, adsr[i] | (1 << ENV_GATE_BIT));
+                    if (i == 0) {
+                        filter_sweep_value = FILTER_DROP_START;
+                    }
+                } else {
+                    drum_pos = 0;
+                    drum_delay = 0;
                 }
             } else if (note < 0) {
                 dspc_set_envelope(dspc, i, adsr[i]);
@@ -96,10 +120,24 @@ static inline void sequencer_callback() {
     } else {
         step++;
     }
-    for (int i = 0; i < NUMBER_OF_VOICES; i++) {
+    for (int i = 0; i < NUMBER_OF_VOICES-1; i++) {
         dspc_set_control(dspc, i, instr[i].wf | vol[i]);
         dspc_set_pwm(dspc, i, pwm[i]);
         pwm[i]+=instr[i].pwm;
+    }
+    if (drum_delay == 0) {
+        if (drum[drum_pos].note > 0) {
+            uint8_t drum_voice = 3;
+            uint16_t freq8 = control.freq8table[drum[drum_pos].note];        
+            dspc_set_frequency(dspc, drum_voice, freq8);
+            dspc_set_envelope(dspc, drum_voice, drum[drum_pos].gate | adsr[drum_voice]);
+            dspc_set_control(dspc, drum_voice, drum[drum_pos].control);
+            dspc_set_pwm(dspc, drum_voice, 128);
+            drum_delay = drum[drum_pos].delay;
+            drum_pos++;
+        }
+    } else {
+        drum_delay--;
     }
     dspc_set_filter_hp_fc(dspc, hpfc);
     dspc_set_mode(dspc, 2|4); // Highpass filter on second + third channel
@@ -134,6 +172,7 @@ static void init_song(Song *song) {
     instr[2].wf = 0x00;
     instr[3].vol = 63;
     instr[3].wf = 0xc0;
+    instr[3].pwm = 0x80;
 }
 
 static inline void pulse() {
@@ -170,29 +209,8 @@ void control_run() {
     irq_set_priority(USBCTRL_IRQ,  3);    
 
     start_60hz_pwm_irq();
-    //static repeating_timer_t timer;
-    //add_repeating_timer_us(-16667, sequencer_callback, NULL, &timer);
     while (true) {
         tight_loop_contents();  // small wait hint
     }
 
 }    
-
-/*void old_control_run() {
-    uint32_t freq8table[128];
-
-    int oct = 4;
-    uint16_t vel[NUMBER_OF_VOICES];
-    uint16_t pwm[NUMBER_OF_VOICES];
-    for (int i = 0; i < NUMBER_OF_VOICES; i++) {
-        vel[i] = 0;
-        pwm[i] = 0;
-    }
-
-    int next_voice = 0;
-    int waveform = WAV_SAW;
-    while (true) {
-
-        tight_loop_contents();  // small wait hint
-    }
-}*/
