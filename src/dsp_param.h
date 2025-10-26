@@ -32,6 +32,7 @@ typedef struct {
 typedef struct {
     FilterParam filter;
     DspChannel channels[NUMBER_OF_VOICES];
+    uint8_t mode;  
 } DspData;
 
 typedef struct {    

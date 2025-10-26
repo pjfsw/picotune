@@ -151,7 +151,7 @@ int32_t synth_next_sample(Voice *voice) {
     int32_t tmp32 = tmp >> (16 + ENVELOPE_SCALE_BITS); // compensate 16-bit volume and x bit ADSR
     FilterParam *filter = voice->voice_param.filter;
     if (voice->voice_param.use_hpf) {
-        tmp32 = highpass(&voice->hp_state, tmp32, HP_200HZ);
+        tmp32 = highpass(&voice->hp_state, tmp32, filter->hp_fc);
     }    
     if (voice->voice_param.use_lpf) {
         tmp32 = svf_lowpass(&voice->svf, tmp32, filter->lp_fc, filter->lp_q);

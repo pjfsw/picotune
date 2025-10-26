@@ -158,6 +158,17 @@ void dspc_set_pwm(DspControl *dspc, int voice, uint8_t pwm) {
     transform_voice_pwm(dspc, voice);
 }
 
+#define HPF_A_FC_MIN  0x7FA2C28B  // ~20 Hz
+#define HPF_A_FC_MAX  0x2CEAF0B4  // 7350 Hz
+static void transform_hp_fc(DspControl *dspc){
+    current_dsp_data->filter.hp_fc = HPF_A_FC_MIN + (int32_t)(((int64_t)(HPF_A_FC_MAX - HPF_A_FC_MIN) * dspc->registers.hp_fc) >> 16);
+}
+
+void dspc_set_filter_hp_fc(DspControl *dspc, uint16_t fc) {
+    dspc->registers.hp_fc = fc;
+    transform_hp_fc(dspc);
+}
+
 #define LPF_FC_MIN 0x005D5F79 // (~20Hz)
 #define LPF_FC_MAX 0x80000000 // 7350 Hz 
 static void transform_lp_fc(DspControl *dspc) {
@@ -169,10 +180,7 @@ void dspc_set_filter_lp_fc(DspControl *dspc, uint16_t fc) {
     transform_lp_fc(dspc);
 }
 
-//#define LPF_Q_MIN 0x46666666 //Q dampening=0.55
-//#define LPF_Q_MIN 0x2CCCCCCC //Q damping 0.35
-//#define LPF_Q_MIN 0x26666666 //Q damping 0.3
-#define LPF_Q_MIN 0x20000000 // Q damping 0.25 <-- Souds sick!
+#define LPF_Q_MIN 0x20000000 // Q damping 0.25 <-- Sounds sick!
 #define LPF_Q_MAX 0x7999999a //Q damping 0.95
 static void transform_lp_q(DspControl *dspc) {
     current_dsp_data->filter.lp_q = LPF_Q_MIN + (int32_t)(((int64_t)(LPF_Q_MAX - LPF_Q_MIN) * dspc->registers.lp_q) >> 8);  // Q31 
@@ -181,6 +189,15 @@ static void transform_lp_q(DspControl *dspc) {
 void dspc_set_filter_lp_q(DspControl *dspc, uint8_t q) {
     dspc->registers.lp_q = q;
     transform_lp_q(dspc);
+}
+
+static void transform_mode(DspControl *dspc) {
+    current_dsp_data->mode = dspc->registers.mode;
+}
+
+void dspc_set_mode(DspControl *dspc, uint8_t mode) {
+    dspc->registers.mode = mode;
+    transform_mode(dspc);
 }
 
 void dspc_latch() {

@@ -19,9 +19,9 @@ typedef struct {
 } Adsr;
 
 typedef struct {
-    int32_t hp_fc; 
-    int32_t lp_fc; // Cut off frequency, 0x005D5F79 = 20 Hz, 0x8A1FFF5D = 8000 Hz
-    int32_t lp_q;  // Q, resonance, 0x46666666 = 0.55, 0x7999999A = 0.95
+    int32_t hp_fc; // Cut off frequency, ~20-7350 Hz
+    int32_t lp_fc; // Cut off frequency, ~20-7350 Hz
+    int32_t lp_q;  // Q damping factor, 0 = most resonance, 255=least resonance
 } FilterParam;
 
 #endif

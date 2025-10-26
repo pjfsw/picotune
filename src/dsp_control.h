@@ -73,6 +73,10 @@ void dspc_set_filter_lp_fc(DspControl *dspc, uint16_t fc);
 
 void dspc_set_filter_lp_q(DspControl *dspc, uint8_t q);
 
+void dspc_set_filter_hp_fc(DspControl *dspc, uint16_t fc);
+
+void dspc_set_mode(DspControl *dspc, uint8_t control_value);
+
 void dspc_latch();
 
 #endif

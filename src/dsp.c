@@ -42,6 +42,8 @@ static inline uint16_t mcp4822_frame(uint16_t v12) {
 }
 
 static void copy_voice_control() {
+    uint8_t mode = dsp_settings.dsp_data->mode;
+
     for (int voice = 0; voice < NUMBER_OF_VOICES; voice++) {
         voices[voice].voice_param.phase_add = dsp_settings.dsp_data->channels[voice].phase_add;
         voices[voice].voice_param.table_weight = dsp_settings.dsp_data->channels[voice].table_weight;
@@ -58,11 +60,14 @@ static void copy_voice_control() {
         voices[voice].noise.phase_inc = dsp_settings.dsp_data->channels[voice].noise_phase_inc;
         voices[voice].voice_param.gate = dsp_settings.dsp_data->channels[voice].gate;
         // Filter stuff
-        voices[voice].voice_param.use_lpf = dsp_settings.dsp_data->channels[voice].filter_enable;
+        bool filter_enable = dsp_settings.dsp_data->channels[voice].filter_enable;
+        bool filter_hpf = (mode & (1<<voice));
+        voices[voice].voice_param.use_lpf = filter_enable & !filter_hpf;
+        voices[voice].voice_param.use_hpf = filter_enable & filter_hpf;
     }
     filter_param.lp_fc = dsp_settings.dsp_data->filter.lp_fc;
     filter_param.lp_q = dsp_settings.dsp_data->filter.lp_q;
-
+    filter_param.hp_fc = dsp_settings.dsp_data->filter.hp_fc;
 }
 
 
