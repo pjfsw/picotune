@@ -1,3 +1,4 @@
+#include <string.h>
 #include "synth.h"
 #include "samplerate.h"
 #include "dsp_param.h"
@@ -13,18 +14,23 @@
 #define HP_400HZ 0x78C454BD
 #define HP_800HZ 0x7210D7DB
 
+#define FILTER_SMOOTH_ALPHA_5MS  0x00941E4F // 
+/*
+| τ (ms) | α (float) | α_q31 (hex) |
+| :----: | :-------: | :---------: |
+|  2 ms  |   0.0113  |  0x0245A1CA |
+|  5 ms  |  0.00452  |  0x00941E4F |
+|  10 ms |  0.00226  |  0x0048617A |
+*/
+
 
 void synth_init(Voice *voice, uint16_t *env_table) {
-    voice->noise.lfsr = (uint32_t)time_us_32() & 0x7FFFFF;
-     if (!voice->noise.lfsr) {
-         voice->noise.lfsr = 1;
-     }
-    voice->noise.phase = 0;
-    voice->env_state = ENV_OFF;
+    memset(voice, 0, sizeof(Voice));
     voice->env_table = env_table;
-    voice->last_gate = false;
-    voice->ramp.remaining = 0;
-    voice->ramp.current = 0;
+    voice->noise.lfsr = (uint32_t)time_us_32() & 0x7FFFFF;
+    if (!voice->noise.lfsr) {
+        voice->noise.lfsr = 1;
+    }
 }
 
 static int64_t get_oscillator(VoiceParam *voice_param, uint32_t phase) {
@@ -100,6 +106,19 @@ static inline int32_t svf_lowpass(SVF *s, int32_t x, int32_t f_q31, int32_t q_q3
     return s->lp; // low-pass output
 }
 
+static inline int32_t smooth_q31(int32_t current, int32_t target, int32_t alpha_q31)
+{
+    // diff = target - current
+    int32_t diff = target - current;
+
+    // current += alpha * diff
+    int64_t step = (int64_t)alpha_q31 * diff;   // Q31 * Q31 = Q62
+    current += (int32_t)(step >> 31);           // back to Q31
+
+    return current;
+}
+
+
 static inline uint32_t lfsr23_step(uint32_t s){
     // taps: bit22 ^ bit17 -> LSB; 23-bit state kept in 0..22
     uint32_t fb = ((s >> 22) ^ (s >> 17)) & 1u;
@@ -154,11 +173,11 @@ int32_t synth_next_sample(Voice *voice) {
         tmp32 = highpass(&voice->hp_state, tmp32, filter->hp_fc);
     }    
     if (voice->voice_param.use_lpf) {
-        tmp32 = svf_lowpass(&voice->svf, tmp32, filter->lp_fc, filter->lp_q);
-        // int32_t f_q31 = (int32_t)roundf( (2.0f * sinf((float)M_PI * Fc / Fs)) * 2147483648.0f );
-        // int32_t q_q31 = (int32_t)roundf(q_damp * 2147483648.0f);
-
-        //tmp32 = svf_lowpass(&voice->svf, tmp32, 0x03A5B2BC, 0x5999999A);
+        tmp32 = svf_lowpass(&voice->svf, tmp32, voice->voice_param.filter->lp_fc, voice->voice_param.filter->lp_q);
+        // Some smoothing thing, doesn't seem to be needed
+        //voice->current_filter.lp_fc = smooth_q31(voice->current_filter.lp_fc, voice->voice_param.filter->lp_fc, FILTER_SMOOTH_ALPHA_5MS);
+        //voice->current_filter.lp_q = smooth_q31(voice->current_filter.lp_q, voice->voice_param.filter->lp_q, FILTER_SMOOTH_ALPHA_5MS);        
+        //tmp32 = svf_lowpass(&voice->svf, tmp32, voice->current_filter.lp_fc, voice->current_filter.lp_q);
     }
     return tmp32;
 }

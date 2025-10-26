@@ -28,8 +28,8 @@ float db_map[VOLUME_STEPS] = {
     -41.8f, -42.6f, -43.4f, -44.2f, -45.0f, -45.8f, -46.6f, -47.4f
 };
 static void init_volume_maps(DspControl *dspc) {
-//    float peak_level[4] = {-4,-6,-3,-4};
-    float peak_level[4] = {-3,-5,-2,-3};
+    float peak_level[4] = {-4,-6,-3,-4};
+    //float peak_level[4] = {-3,-5,-2,-3};
     for (int wav = 0; wav < 4; wav++) {
         for (int i = 0; i < VOLUME_STEPS; i++) {
             float dbfs = peak_level[wav]+db_map[VOLUME_STEPS-1-i];    //(VOLUME_STEPS-1-i);

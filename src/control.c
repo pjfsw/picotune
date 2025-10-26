@@ -45,6 +45,7 @@ uint8_t pwm[NUMBER_OF_VOICES];
 typedef struct {
     int8_t vol;
     uint8_t pwm;
+    uint8_t pwm_ofs;
     uint8_t wf;
 } Instr;
 
@@ -55,7 +56,7 @@ uint16_t adsr[NUMBER_OF_VOICES] = {0x43bd, 0x799e, 0x4475,0x02b6};
 #define FILTER_DROP_START 0xc000
 #define FILTER_DROP_END 0x0c00
 #define FILTER_DROP_SPEED 0x1000
-#define FILTER_Q 3
+#define FILTER_Q 1
 
 int32_t filter_sweep_value = 0;
 uint16_t hpfc = 1024;
@@ -80,7 +81,7 @@ static inline void sequencer_callback() {
             if (note > 0) {
                 uint16_t freq8 = control.freq8table[note];
                 dspc_set_frequency(dspc, i, freq8);
-                pwm[i] = 63;
+                pwm[i] = instr[i].pwm_ofs;
                 vol[i] = instr[i].vol;
                 dspc_set_envelope(dspc, i, adsr[i] | (1<<ENV_GATE_BIT));
                 if (i == 0) {
@@ -121,11 +122,13 @@ static void init_song(Song *song) {
     memcpy(&song->notes[1], mid_notes, 32);
     memcpy(&song->notes[2], mid2_notes, 32);
     memcpy(&song->notes[3], rythm_notes, 32);
-    instr[0].vol = 61;
-    instr[0].pwm = 2;
+    instr[0].vol = 62;
+    instr[0].pwm = 1;
+    instr[0].pwm_ofs = 32;
     instr[0].wf = 0x40;
-    instr[1].vol = 59;
+    instr[1].vol = 57;
     instr[1].pwm = 3;
+    instr[1].pwm_ofs = 64;
     instr[1].wf = 0x40;
     instr[2].vol = 60;
     instr[2].wf = 0x00;

@@ -67,6 +67,7 @@ typedef struct {
     EnvState env_state;
     uint16_t *env_table;
     bool last_gate;
+    FilterParam current_filter;
 } Voice;
 
 #endif 
