@@ -169,8 +169,11 @@ void dspc_set_filter_lp_fc(DspControl *dspc, uint16_t fc) {
     transform_lp_fc(dspc);
 }
 
-#define LPF_Q_MIN 0x46666666 //Q=0.55
-#define LPF_Q_MAX 0x7999999a //Q=0.95
+//#define LPF_Q_MIN 0x46666666 //Q dampening=0.55
+//#define LPF_Q_MIN 0x2CCCCCCC //Q damping 0.35
+//#define LPF_Q_MIN 0x26666666 //Q damping 0.3
+#define LPF_Q_MIN 0x20000000 // Q damping 0.25 <-- Souds sick!
+#define LPF_Q_MAX 0x7999999a //Q damping 0.95
 static void transform_lp_q(DspControl *dspc) {
     current_dsp_data->filter.lp_q = LPF_Q_MIN + (int32_t)(((int64_t)(LPF_Q_MAX - LPF_Q_MIN) * dspc->registers.lp_q) >> 8);  // Q31 
 }

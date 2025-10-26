@@ -53,8 +53,9 @@ Instr instr[NUMBER_OF_VOICES];
 uint16_t adsr[NUMBER_OF_VOICES] = {0x43bd, 0x399e, 0x0475,0x02b6};
 
 #define FILTER_DROP_START 0xc000
-#define FILTER_DROP_END 0x1000
+#define FILTER_DROP_END 0x0c00
 #define FILTER_DROP_SPEED 0x1000
+#define FILTER_Q 0
 
 int32_t filter_sweep_value = 0;
 
@@ -99,7 +100,7 @@ static inline void sequencer_callback() {
         pwm[i]+=instr[i].pwm;
     }
     dspc_set_filter_lp_fc(dspc, filter_sweep_value);
-    dspc_set_filter_lp_q(dspc, 255);
+    dspc_set_filter_lp_q(dspc, FILTER_Q);
     filter_sweep_value -= FILTER_DROP_SPEED;
     if (filter_sweep_value < FILTER_DROP_END) {
         filter_sweep_value = FILTER_DROP_END;
