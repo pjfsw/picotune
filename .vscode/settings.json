@@ -10,6 +10,7 @@
     "samplerate.h": "c",
     "dsp_param.h": "c",
     "pwm.h": "c",
-    "dsp_control.h": "c"
+    "dsp_control.h": "c",
+    "ranges": "c"
   }
 }

@@ -50,16 +50,16 @@ typedef struct {
 
 Instr instr[NUMBER_OF_VOICES];
 
-uint16_t adsr[NUMBER_OF_VOICES] = {0x03bd, 0x399e, 0x0475,0x02b6};
+uint16_t adsr[NUMBER_OF_VOICES] = {0x43bd, 0x399e, 0x0475,0x02b6};
+
+#define FILTER_DROP_START 0xc000
+#define FILTER_DROP_END 0x1000
+#define FILTER_DROP_SPEED 0x1000
+
+int32_t filter_sweep_value = 0;
 
 static inline void sequencer_callback() {
     dspc_latch();
-
-    for (int i = 0; i < NUMBER_OF_VOICES; i++) {
-        dspc_set_control(dspc, i, instr[i].wf | vol[i]);
-        dspc_set_pwm(dspc, i, pwm[i]);
-        pwm[i]+=instr[i].pwm;
-    }
 
     uint8_t track_pos = songpos & 0x1f;
     Song *song = &control.song;
@@ -81,6 +81,9 @@ static inline void sequencer_callback() {
                 pwm[i] = 63;
                 vol[i] = instr[i].vol;
                 dspc_set_envelope(dspc, i, adsr[i] | (1<<ENV_GATE_BIT));
+                if (i == 0) {
+                    filter_sweep_value = FILTER_DROP_START;
+                }
             } else if (note < 0) {
                 dspc_set_envelope(dspc, i, adsr[i]);
             }
@@ -90,6 +93,18 @@ static inline void sequencer_callback() {
     } else {
         step++;
     }
+    for (int i = 0; i < NUMBER_OF_VOICES; i++) {
+        dspc_set_control(dspc, i, instr[i].wf | vol[i]);
+        dspc_set_pwm(dspc, i, pwm[i]);
+        pwm[i]+=instr[i].pwm;
+    }
+    dspc_set_filter_lp_fc(dspc, filter_sweep_value);
+    dspc_set_filter_lp_q(dspc, 255);
+    filter_sweep_value -= FILTER_DROP_SPEED;
+    if (filter_sweep_value < FILTER_DROP_END) {
+        filter_sweep_value = FILTER_DROP_END;
+    }
+
 }
 
 static void init_song(Song *song) {

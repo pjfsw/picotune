@@ -28,9 +28,10 @@ static uint32_t dsp_control_id;
 static uint16_t env_table[ENVELOPE_STEPS];
 static uint16_t rev_env_table[ENVELOPE_SCALE];
 
-DspParam dsp_param;
+DspSettings dsp_settings;
 
 static Voice voices[NUMBER_OF_VOICES];
+static FilterParam filter_param;
 static int64_t block_buffer[BUF_LEN];
 
 
@@ -42,23 +43,28 @@ static inline uint16_t mcp4822_frame(uint16_t v12) {
 
 static void copy_voice_control() {
     for (int voice = 0; voice < NUMBER_OF_VOICES; voice++) {
-        voices[voice].voice_param.phase_add = dsp_param.channels[voice].phase_add;
-        voices[voice].voice_param.table_weight = dsp_param.channels[voice].table_weight;
-        voices[voice].voice_param.volume = dsp_param.channels[voice].volume;
-        voices[voice].voice_param.attack = dsp_param.channels[voice].attack;
-        voices[voice].voice_param.decay = dsp_param.channels[voice].decay;
-        voices[voice].voice_param.sustain = dsp_param.channels[voice].sustain;
-        voices[voice].voice_param.release = dsp_param.channels[voice].release;
-        voices[voice].voice_param.wavetable = dsp_param.channels[voice].wavetable;
-        voices[voice].voice_param.wavetable2 = dsp_param.channels[voice].wavetable2;
-        voices[voice].voice_param.pwm = dsp_param.channels[voice].pwm << 24;
-        voices[voice].voice_param.use_pwm = dsp_param.channels[voice].waveform == WAV_SQUARE;
-        voices[voice].voice_param.use_noise = dsp_param.channels[voice].waveform == WAV_NOISE;
-        voices[voice].noise.phase_inc = dsp_param.channels[voice].noise_phase_inc;
-        voices[voice].voice_param.highpass = dsp_param.channels[voice].highpass;
-        voices[voice].voice_param.gate = dsp_param.channels[voice].gate;
+        voices[voice].voice_param.phase_add = dsp_settings.dsp_data->channels[voice].phase_add;
+        voices[voice].voice_param.table_weight = dsp_settings.dsp_data->channels[voice].table_weight;
+        voices[voice].voice_param.volume = dsp_settings.dsp_data->channels[voice].volume;
+        voices[voice].voice_param.adsr.attack = dsp_settings.dsp_data->channels[voice].adsr.attack;
+        voices[voice].voice_param.adsr.decay = dsp_settings.dsp_data->channels[voice].adsr.decay;
+        voices[voice].voice_param.adsr.sustain = dsp_settings.dsp_data->channels[voice].adsr.sustain;
+        voices[voice].voice_param.adsr.release = dsp_settings.dsp_data->channels[voice].adsr.release;
+        voices[voice].voice_param.wavetable = dsp_settings.dsp_data->channels[voice].wavetable;
+        voices[voice].voice_param.wavetable2 = dsp_settings.dsp_data->channels[voice].wavetable2;
+        voices[voice].voice_param.pwm = dsp_settings.dsp_data->channels[voice].pwm << 24;
+        voices[voice].voice_param.use_pwm = dsp_settings.dsp_data->channels[voice].waveform == WAV_SQUARE;
+        voices[voice].voice_param.use_noise = dsp_settings.dsp_data->channels[voice].waveform == WAV_NOISE;
+        voices[voice].noise.phase_inc = dsp_settings.dsp_data->channels[voice].noise_phase_inc;
+        voices[voice].voice_param.gate = dsp_settings.dsp_data->channels[voice].gate;
+        // Filter stuff
+        voices[voice].voice_param.use_lpf = dsp_settings.dsp_data->channels[voice].filter_enable;
     }
+    filter_param.lp_fc = dsp_settings.dsp_data->filter.lp_fc;
+    filter_param.lp_q = dsp_settings.dsp_data->filter.lp_q;
+
 }
+
 
 static inline bool is_gate_on(Voice *voice) {
     return (voice->voice_param.gate && !voice->last_gate);
@@ -84,19 +90,19 @@ static inline void update_adsr(Voice *voice) {
     if (is_gate_on(voice)) {
         voice->env_state = ENV_OFF;
         voice->ramp.current = 0;
-        update_ramp(&voice->ramp, 65535, voice->voice_param.attack);
+        update_ramp(&voice->ramp, 65535, voice->voice_param.adsr.attack);
         voice->env_state = ENV_ATTACK;
     } if (is_gate_off(voice)) {
         if (voice->env_state == ENV_ATTACK) {
             convert_attack_level_to_db(&voice->ramp);
         }
-        update_ramp(&voice->ramp, 0, voice->voice_param.release);
+        update_ramp(&voice->ramp, 0, voice->voice_param.adsr.release);
         voice->env_state = ENV_RELEASE;
     } else if (voice->ramp.remaining == 0) {
         switch (voice->env_state) {
             case ENV_ATTACK:
                 voice->ramp.current = 65535 << ENVELOPE_FRACTIONAL_BITS;
-                update_ramp(&voice->ramp, voice->voice_param.sustain, voice->voice_param.decay);
+                update_ramp(&voice->ramp, voice->voice_param.adsr.sustain, voice->voice_param.adsr.decay);
                 voice->env_state = ENV_DECAY;
                 break;
             case ENV_DECAY:
@@ -120,7 +126,7 @@ static inline void update_adsr(Voice *voice) {
 static void fill_buffer(uint16_t *buffer, uint16_t buffer_size) {
 
     uint16_t buffer_offset = 0;    
-    uint32_t current_id = atomic_load_explicit(&dsp_param.control_id, memory_order_acquire);
+    uint32_t current_id = atomic_load_explicit(&dsp_settings.control_id, memory_order_acquire);
     if (dsp_control_id != current_id)  {
         copy_voice_control();
         dsp_control_id = current_id;
@@ -255,6 +261,7 @@ void dsp_run() {
     for (int i = 0; i < NUMBER_OF_VOICES; i++) {
         copy_voice_control(i);
         synth_init(&voices[i], env_table);
+        voices[i].voice_param.filter = &filter_param;
     }
     setup_audio_stream();
     while (true) {

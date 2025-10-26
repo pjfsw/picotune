@@ -149,14 +149,16 @@ int32_t synth_next_sample(Voice *voice) {
 
     int64_t tmp = ((int64_t)out * env * (int64_t)(voice->voice_param.volume));
     int32_t tmp32 = tmp >> (16 + ENVELOPE_SCALE_BITS); // compensate 16-bit volume and x bit ADSR
-    if (voice->voice_param.highpass) {
+    FilterParam *filter = voice->voice_param.filter;
+    if (voice->voice_param.use_hpf) {
         tmp32 = highpass(&voice->hp_state, tmp32, HP_200HZ);
-    }
-    // if voice->voice_param.lowpass) {
+    }    
+    if (voice->voice_param.use_lpf) {
+        tmp32 = svf_lowpass(&voice->svf, tmp32, filter->lp_fc, filter->lp_q);
         // int32_t f_q31 = (int32_t)roundf( (2.0f * sinf((float)M_PI * Fc / Fs)) * 2147483648.0f );
         // int32_t q_q31 = (int32_t)roundf(q_damp * 2147483648.0f);
 
         //tmp32 = svf_lowpass(&voice->svf, tmp32, 0x03A5B2BC, 0x5999999A);
-    //}
+    }
     return tmp32;
 }

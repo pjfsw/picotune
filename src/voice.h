@@ -2,6 +2,7 @@
 #define VOICE_H
 
 #include "pico/stdlib.h"
+#include "synth_param.h"
 
 #define ENVELOPE_SCALE_BITS 11 // Amplitude of the envelope dB-to-V table
 #define ENVELOPE_SCALE_SHIFT (16-ENVELOPE_SCALE_BITS)
@@ -13,15 +14,14 @@ typedef struct {
     uint16_t volume;
     uint32_t phase_add;
     uint32_t pwm;
-    uint16_t attack;
-    uint32_t decay;
-    uint16_t sustain;
-    uint32_t release;
+    Adsr adsr;
+    FilterParam *filter;
     uint8_t table_weight;
-    bool highpass;
     bool use_pwm;
     bool use_noise;    
-    bool gate;   
+    bool gate;       
+    bool use_hpf;
+    bool use_lpf;
 } VoiceParam;
 
 // 23-bit LFSR + variable-rate clock, integer-only
