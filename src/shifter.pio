@@ -1,0 +1,6 @@
+.program shifter
+.wrap_target
+    wait 0 gpio 13     ; wait CLK falling
+    wait 1 gpio 13    ; wait CLK rising
+    in   pins, 1
+.wrap

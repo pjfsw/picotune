@@ -11,6 +11,8 @@
     "dsp_param.h": "c",
     "pwm.h": "c",
     "dsp_control.h": "c",
-    "ranges": "c"
+    "ranges": "c",
+    "shifter.pio.h": "c",
+    "irq.h": "c"
   }
 }

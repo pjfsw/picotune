@@ -10,6 +10,9 @@ void core1_entry() {
 }
 
 int main() {
+    stdio_init_all();        // enables both USB and UART stdio
+    sleep_ms(1000);          // optional delay, gives USB time to enumerate
+
     control_init();
     
     multicore_launch_core1(core1_entry);

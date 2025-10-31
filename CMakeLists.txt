@@ -23,7 +23,7 @@ add_executable(picotune
     src/wavetable_triangle.c
 )
 
-pico_generate_pio_header(picotune ${CMAKE_CURRENT_LIST_DIR}/src/mcp4822.pio)
+pico_generate_pio_header(picotune ${CMAKE_CURRENT_LIST_DIR}/src/mcp4822.pio ${CMAKE_CURRENT_LIST_DIR}/src/shifter.pio)
 
 target_link_libraries(picotune
     pico_stdlib
@@ -34,6 +34,6 @@ target_link_libraries(picotune
     pico_multicore
 )
 
-pico_enable_stdio_usb(picotune 0)
+pico_enable_stdio_usb(picotune 1)
 pico_enable_stdio_uart(picotune 0)
 pico_add_extra_outputs(picotune)

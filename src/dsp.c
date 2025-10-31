@@ -148,21 +148,21 @@ static void fill_buffer(uint16_t *buffer, uint16_t buffer_size) {
             }
         }
     }
-    bool clipping = false;
+    //bool clipping = false;
     for (int sample = 0; sample < buffer_size; sample++) {
         // TODO: Add dithering and all the sick stuff here
         int64_t amp = block_buffer[sample] >> (20 + VOICE_DOWN_MIX_BITS);  // 32 lovely bits down to 12
         if (amp < -2047) {
             amp = -2047;
-            clipping = true;
+            //clipping = true;
         } else if (amp > 2047) {
             amp = 2047;
-            clipping = true;
+            //clipping = true;
         }
         buffer[buffer_offset] = mcp4822_frame(amp + 2048);
         buffer_offset++;
     }
-    gpio_put(LED_PIN, clipping);
+    //gpio_put(LED_PIN, clipping);
 }
 
 static void __isr dma_handler() {
