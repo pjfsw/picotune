@@ -22,7 +22,8 @@
 
 //#define LED_PIN 25
 //#define DEBUG_PIN 22
-//#define INPUT_PIN  15
+#define LATCH_PIN 15
+#define LATCH_MASK (1<<LATCH_PIN)
 #define CS_PIN 14
 #define CLK_PIN 13
 #define DATA_PIN 12
@@ -31,7 +32,7 @@
 static DspControl *dspc; 
 static int dma_channel;
 static int sm;
-static char receive_buffer[100];
+static char *receive_buffer;
 
 volatile int received_count;
 volatile bool data_received;
@@ -63,6 +64,7 @@ void cs_pin_irq_handler(uint gpio, uint32_t events) {
         received_count = (int)(dma_hw->ch[dma_channel].write_addr - (uintptr_t)receive_buffer);
         data_received = true;
         reset_pio();
+        dspc_transform(dspc);
     }
 }
 
@@ -111,13 +113,15 @@ void setup_input_irq() {
 }
 
 void control_run() {
-    //receive_buffer =  (char*)&dspc->registers;
+    receive_buffer =  (char*)&dspc->registers;
     gpio_init(CS_PIN);          
     gpio_set_dir(CS_PIN, GPIO_IN);
     gpio_init(DATA_PIN);
     gpio_set_dir(DATA_PIN, GPIO_IN);
     gpio_init(CLK_PIN);
     gpio_set_dir(CLK_PIN, GPIO_IN);
+    gpio_init(LATCH_PIN);
+    gpio_set_dir(LATCH_PIN, GPIO_IN);
     gpio_init(PICO_DEFAULT_LED_PIN);
     gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
 
@@ -128,14 +132,21 @@ void control_run() {
     irq_set_priority(DMA_IRQ_0,    0);
     irq_set_priority(USBCTRL_IRQ,  3);
 
-    bool usb = false;
-
-    while (true) {        
-        if (!usb && stdio_usb_connected()) {
+    uint32_t latch = sio_hw->gpio_in & LATCH_MASK;
+    while (true) {     
+        uint32_t now = sio_hw->gpio_in & LATCH_MASK;
+        if (now && !latch) {
+            // rising edge detected — process immediately
+            dspc_latch();
+            //printf("Latch\n");
+            //stdio_flush();
+        }
+        latch = now;
+        /*if (!usb && stdio_usb_connected()) {
             printf("Welcome!\n");
             stdio_flush();
             usb = true;
-        }
+        }*/
         if (data_received) {
             if (received_count > 0) {
                 for (int c = 0; c < received_count; c++) {
@@ -148,6 +159,6 @@ void control_run() {
             stdio_flush();
             data_received = false;
         }
-        tight_loop_contents();
+        //tight_loop_contents();
     }
 }

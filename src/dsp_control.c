@@ -218,4 +218,17 @@ void dspc_latch() {
     set_current_dsp_data();
 }
 
+void dspc_transform(DspControl *dspc) {
+    transform_mode(dspc);
+    transform_lp_q(dspc);
+    transform_lp_fc(dspc);
+    transform_hp_fc(dspc);
+    for (int i = 0 ; i < NUMBER_OF_VOICES; i++) {
+        transform_voice_frequency(dspc, i);
+        transform_voice_control(dspc, i);
+        transform_voice_envelope(dspc, i);
+        transform_voice_pwm(dspc, i);        
+    }
+}
+
 

@@ -79,4 +79,6 @@ void dspc_set_mode(DspControl *dspc, uint8_t control_value);
 
 void dspc_latch();
 
+void dspc_transform(DspControl *dspc);
+
 #endif
