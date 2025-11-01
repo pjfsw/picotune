@@ -42,18 +42,27 @@ void control_init() {
 }
 
 
+static inline void reset_pio() {
+    pio_sm_set_enabled(interface_pio, sm, false);
+    pio_sm_clear_fifos(interface_pio, sm);
+    pio_sm_restart(interface_pio, sm);
+    pio_sm_exec(interface_pio, sm, pio_encode_mov(pio_isr, pio_null));  // <-- clear ISR
+    pio_sm_set_enabled(interface_pio, sm, true);
+}
+
 void cs_pin_irq_handler(uint gpio, uint32_t events) {
     // This runs on pin change
     if (events & GPIO_IRQ_EDGE_RISE) {        
-        if (gpio == CLK_PIN) {
-            received_count++;
-        } else if (gpio == CS_PIN) {
-            received_count = 0;
-        }
+        dma_channel_abort(dma_channel);
+        dma_channel_set_write_addr(dma_channel, receive_buffer, false);
+        dma_channel_set_trans_count(dma_channel, sizeof(SynthRegisters), true);        
     } else if (events & GPIO_IRQ_EDGE_FALL) {
-        if (gpio == CS_PIN) {
-            data_received = true;
-        }
+        dma_channel_abort(dma_channel);
+        while (dma_channel_is_busy(dma_channel)) {
+        }  // fence
+        received_count = (int)(dma_hw->ch[dma_channel].write_addr - (uintptr_t)receive_buffer);
+        data_received = true;
+        reset_pio();
     }
 }
 
@@ -76,7 +85,7 @@ void setup_input_pio() {
 
     // Run at system clock (we’re externally clocked by wait on CLK edges)
     pio_sm_init(interface_pio, sm, offset, &sm_config);
-    pio_sm_set_enabled(interface_pio, sm, true);
+    reset_pio();
 }
 
 void setup_input_dma() {
@@ -85,6 +94,7 @@ void setup_input_dma() {
     dma_channel_config dma_config = dma_channel_get_default_config(dma_channel);
     channel_config_set_read_increment(&dma_config, false);  // from PIO RX FIFO
     channel_config_set_write_increment(&dma_config, true);  // to RAM buffer
+    channel_config_set_transfer_data_size(&dma_config, DMA_SIZE_8);  // <-- bytes    
     channel_config_set_dreq(&dma_config, pio_get_dreq(interface_pio, sm, false));    // your SM
     // (optional) channel_config_set_high_priority(&c, false);
     dma_channel_configure(dma_channel, &dma_config, NULL, &interface_pio->rxf[sm], 0, false);
@@ -97,13 +107,7 @@ void setup_input_irq() {
         GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL,
         true,
         &cs_pin_irq_handler
-    );
-    gpio_set_irq_enabled(
-        CLK_PIN,
-        GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL,
-        true
-    );
-        
+    );      
 }
 
 void control_run() {
@@ -117,8 +121,9 @@ void control_run() {
     gpio_init(PICO_DEFAULT_LED_PIN);
     gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
 
-    //setup_input_irq();
     setup_input_pio();
+    setup_input_dma();
+    setup_input_irq();
 
     irq_set_priority(DMA_IRQ_0,    0);
     irq_set_priority(USBCTRL_IRQ,  3);
@@ -127,19 +132,22 @@ void control_run() {
 
     while (true) {        
         if (!usb && stdio_usb_connected()) {
-            printf("Welcome\n");
+            printf("Welcome!\n");
+            stdio_flush();
             usb = true;
         }
-        if (!pio_sm_is_rx_fifo_empty(interface_pio, sm)) {
-            uint8_t b = (uint8_t)pio_sm_get(interface_pio, sm);
-            printf("%02X ", b);
+        if (data_received) {
+            if (received_count > 0) {
+                for (int c = 0; c < received_count; c++) {
+                    printf("%02x ", receive_buffer[c]);
+                }
+                printf("\n");
+            } else {
+                printf("%d (No data)\n", received_count);
+            }
             stdio_flush();
-        }
-
-        tight_loop_contents();  // small wait hint
-    }
-    /*if (data_received) {
-            printf("%d: %02x\n", received_count, receive_buffer[0]);            
             data_received = false;
-        }*/
+        }
+        tight_loop_contents();
+    }
 }

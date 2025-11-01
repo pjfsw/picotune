@@ -1,4 +1,6 @@
 .program shifter
+    wait 1 gpio 14    ; don’t do anything until CS active
+    mov  isr, null
 .wrap_target
     wait 0 gpio 13     ; wait CLK falling
     wait 1 gpio 13    ; wait CLK rising
