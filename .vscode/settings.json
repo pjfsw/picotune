@@ -13,6 +13,7 @@
     "dsp_control.h": "c",
     "ranges": "c",
     "shifter.pio.h": "c",
-    "irq.h": "c"
+    "irq.h": "c",
+    "clocks.h": "c"
   }
 }

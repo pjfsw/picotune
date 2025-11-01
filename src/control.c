@@ -34,14 +34,8 @@ static int dma_channel;
 static int sm;
 static char *receive_buffer;
 
-volatile int received_count;
-volatile bool data_received;
-
-void control_init() {
-    dspc = dspc_singleton();
-    dspc_init(dspc);
-}
-
+static volatile int received_count;
+static volatile bool data_received;
 
 static inline void reset_pio() {
     pio_sm_set_enabled(interface_pio, sm, false);
@@ -52,6 +46,10 @@ static inline void reset_pio() {
 }
 
 void cs_pin_irq_handler(uint gpio, uint32_t events) {
+    if (gpio == LATCH_PIN) {
+        dspc_latch();
+        return;
+    }
     // This runs on pin change
     if (events & GPIO_IRQ_EDGE_RISE) {        
         dma_channel_abort(dma_channel);
@@ -60,9 +58,10 @@ void cs_pin_irq_handler(uint gpio, uint32_t events) {
     } else if (events & GPIO_IRQ_EDGE_FALL) {
         dma_channel_abort(dma_channel);
         while (dma_channel_is_busy(dma_channel)) {
+            tight_loop_contents();
         }  // fence
         received_count = (int)(dma_hw->ch[dma_channel].write_addr - (uintptr_t)receive_buffer);
-        data_received = true;
+        //data_received = true;
         reset_pio();
         dspc_transform(dspc);
     }
@@ -97,7 +96,9 @@ void setup_input_dma() {
     channel_config_set_read_increment(&dma_config, false);  // from PIO RX FIFO
     channel_config_set_write_increment(&dma_config, true);  // to RAM buffer
     channel_config_set_transfer_data_size(&dma_config, DMA_SIZE_8);  // <-- bytes    
-    channel_config_set_dreq(&dma_config, pio_get_dreq(interface_pio, sm, false));    // your SM
+    channel_config_set_dreq(&dma_config, DREQ_PIO1_RX0);    // your SM
+    channel_config_set_high_priority(&dma_config, false);
+
     // (optional) channel_config_set_high_priority(&c, false);
     dma_channel_configure(dma_channel, &dma_config, NULL, &interface_pio->rxf[sm], 0, false);
 }
@@ -110,9 +111,15 @@ void setup_input_irq() {
         true,
         &cs_pin_irq_handler
     );      
+    gpio_set_irq_enabled(
+        LATCH_PIN,
+        GPIO_IRQ_EDGE_RISE,
+        true);        
 }
 
-void control_run() {
+void control_init() {
+    dspc = dspc_singleton();
+    dspc_init(dspc);
     receive_buffer =  (char*)&dspc->registers;
     gpio_init(CS_PIN);          
     gpio_set_dir(CS_PIN, GPIO_IN);
@@ -122,43 +129,53 @@ void control_run() {
     gpio_set_dir(CLK_PIN, GPIO_IN);
     gpio_init(LATCH_PIN);
     gpio_set_dir(LATCH_PIN, GPIO_IN);
-    gpio_init(PICO_DEFAULT_LED_PIN);
-    gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
+    gpio_set_pulls(CLK_PIN, true, false);   // pull-up on CB1 / clock
+    gpio_set_pulls(DATA_PIN, true, false);  // pull-up on CB2 / data
+    gpio_set_pulls(CS_PIN,  false, true);    
+    /*gpio_init(PICO_DEFAULT_LED_PIN);
+    gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);*/
 
     setup_input_pio();
-    setup_input_dma();
-    setup_input_irq();
+    //setup_input_dma();
+    //setup_input_irq();
 
     irq_set_priority(DMA_IRQ_0,    0);
+    irq_set_priority(TIMER_IRQ_0,  1);    
     irq_set_priority(USBCTRL_IRQ,  3);
+}
 
-    uint32_t latch = sio_hw->gpio_in & LATCH_MASK;
+static void __not_in_flash_func(drain_rx)() {
+    bool last_cs = gpio_get(CS_PIN);
+    bool last_latch = gpio_get(LATCH_PIN);
+    uint8_t ptr = 0;
     while (true) {     
-        uint32_t now = sio_hw->gpio_in & LATCH_MASK;
-        if (now && !latch) {
-            // rising edge detected — process immediately
+        bool latch = gpio_get(LATCH_PIN);
+        if (latch && !last_latch) {
             dspc_latch();
-            //printf("Latch\n");
-            //stdio_flush();
         }
-        latch = now;
-        /*if (!usb && stdio_usb_connected()) {
-            printf("Welcome!\n");
-            stdio_flush();
-            usb = true;
-        }*/
-        if (data_received) {
-            if (received_count > 0) {
-                for (int c = 0; c < received_count; c++) {
-                    printf("%02x ", receive_buffer[c]);
-                }
-                printf("\n");
-            } else {
-                printf("%d (No data)\n", received_count);
+        bool cs = gpio_get(CS_PIN);
+        if (cs) {
+            if (!last_cs) {
+                ptr = 0;
             }
-            stdio_flush();
-            data_received = false;
+            if (!pio_sm_is_rx_fifo_empty(interface_pio, sm)) {
+                uint32_t data = pio_sm_get(interface_pio, sm);
+                receive_buffer[ptr++] = (uint8_t)data;
+            }
+        } else if (last_cs) {
+            dspc_transform(dspc);
+            /*for (int i = 0; i < ptr; i++) {
+                printf("%02x ", receive_buffer[i]);
+            }
+            printf("\n");
+            stdio_flush();*/
         }
-        //tight_loop_contents();
+        last_cs = cs;
+        last_latch = latch;
+        tight_loop_contents();
     }
+}
+
+void control_run() {
+    drain_rx();
 }

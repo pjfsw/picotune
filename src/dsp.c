@@ -34,6 +34,8 @@ static Voice voices[NUMBER_OF_VOICES];
 static FilterParam filter_param;
 static int64_t block_buffer[BUF_LEN];
 
+static uint32_t herp = 0;
+
 
 // Build a 16-bit MCP4822 frame for channel A, gain 1×, active
 static inline uint16_t mcp4822_frame(uint16_t v12) {
@@ -129,6 +131,10 @@ static inline void update_adsr(Voice *voice) {
 }
 
 static void fill_buffer(uint16_t *buffer, uint16_t buffer_size) {
+    /*for (int sample = 0; sample < buffer_size; sample++) {
+        buffer[buffer_size] = 0;
+    }
+    return;*/
 
     uint16_t buffer_offset = 0;    
     uint32_t current_id = atomic_load_explicit(&dsp_settings.control_id, memory_order_acquire);
@@ -136,6 +142,8 @@ static void fill_buffer(uint16_t *buffer, uint16_t buffer_size) {
         copy_voice_control();
         dsp_control_id = current_id;
     }
+
+
     for (int v = 0; v < NUMBER_OF_VOICES; v++) {
         update_adsr(&voices[v]);
 
@@ -163,6 +171,12 @@ static void fill_buffer(uint16_t *buffer, uint16_t buffer_size) {
         buffer_offset++;
     }
     //gpio_put(LED_PIN, clipping);
+}
+
+static inline void blink_led() {
+    gpio_put(LED_PIN, (herp >> 8) & 1);
+    herp++;
+
 }
 
 static void __isr dma_handler() {
@@ -204,10 +218,11 @@ static void setup_audio_stream() {
 
     dma_channel_config ca = dma_channel_get_default_config(dma_a);
     channel_config_set_transfer_data_size(&ca, DMA_SIZE_16);
-    channel_config_set_dreq(&ca, DREQ_PIO0_TX0);
+    channel_config_set_dreq(&ca, pio_get_dreq(pio, sm, /*is_tx=*/true) /*   DREQ_PIO0_TX0*/);
     channel_config_set_chain_to(&ca, dma_b);  // after A → trigger B
     channel_config_set_read_increment(&ca, true);
     channel_config_set_write_increment(&ca, false);
+    channel_config_set_high_priority(&ca, true);
     
     dma_channel_config cb = dma_channel_get_default_config(dma_b);
     channel_config_set_transfer_data_size(&cb, DMA_SIZE_16);
@@ -215,9 +230,10 @@ static void setup_audio_stream() {
     channel_config_set_chain_to(&cb, dma_a);  // after B → trigger A
     channel_config_set_read_increment(&cb, true);
     channel_config_set_write_increment(&cb, false);
+    channel_config_set_high_priority(&cb, true);
 
-    dma_channel_configure(dma_a, &ca, &pio0->txf[sm], buffer[0], BUF_LEN, false);
-    dma_channel_configure(dma_b, &cb, &pio0->txf[sm], buffer[1], BUF_LEN, false);
+    dma_channel_configure(dma_a, &ca, &pio->txf[sm], buffer[0], BUF_LEN, false);
+    dma_channel_configure(dma_b, &cb, &pio->txf[sm], buffer[1], BUF_LEN, false);
 
     fill_buffer(buffer[0], BUF_LEN);
     dma_start_channel_mask(1u << dma_a);
@@ -264,13 +280,14 @@ void dsp_run() {
 
     init_env_tables();
     for (int i = 0; i < NUMBER_OF_VOICES; i++) {
-        copy_voice_control(i);
+        //copy_voice_control(i);
         synth_init(&voices[i], env_table);
         voices[i].voice_param.filter = &filter_param;
     }
     setup_audio_stream();
     while (true) {
         if (data_requested) {
+            blink_led();
             data_requested = false;
             fill_buffer(buffer[next_buffer], BUF_LEN);
         }
